@@ -1,5 +1,5 @@
-# Robo-Mode 
-Robo-mode assumes your folders represent a collection of software logs of interest. Robo-mode performs a comparison between two or more folders using matching file names.  A **target run** represents a software run we are interested in analyzing. Robo-mode uses **comparison runs** as a baseline. For example, the "My_passing_logs" folder would be a comparison run, while "My_failing_logs" would be your target run that you want to analyze.
+# LogDelta 
+LogDelta assumes your folders represent a collection of software logs of interest. LogDelta performs a comparison between two or more folders using matching file names.  A **target run** represents a software run we are interested in analyzing. LogDelta uses **comparison runs** as a baseline. For example, the "My_passing_logs" folder would be a comparison run, while "My_failing_logs" would be your target run that you want to analyze.
 
 ## Example
 - Download [Hadoop data](https://zenodo.org/records/8196385/files/Hadoop.zip?download=1) from Zenodo
@@ -8,7 +8,7 @@ Robo-mode assumes your folders represent a collection of software logs of intere
 - Observe excel-files in output folder. 
 
 ## Types of Analysis
-In robo-mode, two types of analysis are available:
+In LogDelta, two types of analysis are available:
 
 1. **Measure the distance between two logs or sets of logs** using:
    - Jaccard distance
