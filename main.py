@@ -46,7 +46,13 @@ def main(config_path):
     # df = enhancer.normalize()
     df = enhancer.normalize(regexs=masking_patterns_myllari2)
     print("Parsing event templates")
+
+
+    # Display rows where lossy encoding has occurred
+    #print(lossy_encoded_df)
+    # Make this optional. When bad characters in input all parser. Tipping, Drain etc will fail. 
     df = enhancer.parse_tip()
+    #df = enhancer.parse_drain()
 
     # Data-specific preprocessing
     df = preprocess_files(df, config.get('preprocessing_steps', []))

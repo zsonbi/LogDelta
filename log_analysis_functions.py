@@ -30,7 +30,8 @@ def set_output_folder(folder_path):
 def read_folders(folder, filename_pattern= "*.log"):
     loader = RawLoader(folder, filename_pattern=filename_pattern, strip_full_data_path=folder)
     df = loader.execute()
-    df = df.filter(pl.col("m_message").is_not_null())
+    df = df.filter(pl.col("m_message").is_not_null()) #We lose lines with nulls. 
+    df = df.filter(~pl.col("m_message").str.contains("�")) #We lose non-utf8 lines. 
 
     df = df.with_columns([
         # Extract the first part of the path and create the 'run' column
@@ -39,7 +40,7 @@ def read_folders(folder, filename_pattern= "*.log"):
         pl.col("file_name").str.replace(r'^/[^/]+/', '', literal=False).alias("file_name")
     ])
     unique_runs = len(df.select("run").unique().to_series().to_list())
-    print (f"Loaded {unique_runs} runs (folders) with {df.height} rows from folder {folder}")
+    print (f"Loaded {unique_runs} runs (folders) with {df.height} rows from folder {folder}. Nulls and non-UTF-8s dropped.")
     return df, unique_runs
 
 def _prepare_runs(df, target_run, comparison_runs="ALL"):
@@ -799,7 +800,8 @@ def anomaly_line_content(df, target_run, comparison_runs="ALL", target_files="AL
         df_anos = df_anos.with_row_index("line_number")
         #Write to file and plot
         write_dataframe_to_csv(df_anos, analysis="ano", level=4, target_run=target_run, comparison_run="Many", norm=normalize_content,content_format=content_format, vectorizer=vectorizer,  file=file_name)
-        fig = _ano_plot_line_scores(df_anos, f"Anomaly scores - Normalized:{normalize_content}, Tokenization:{content_format}, Vectorizer:{vectorizer}")
+        title = f"Anomaly scores - Normalized:{normalize_content}, Tokenization:{content_format}, Vectorizer:{vectorizer}<br>Target run: {target_run}<br>Target file: {file_name}"
+        fig = _ano_plot_line_scores(df_anos, title)
         write_dataframe_to_csv(fig, analysis="ano_plot", level=4, target_run=target_run, comparison_run="Many", norm=normalize_content, content_format=content_format, vectorizer=vectorizer, file=file_name)
         print(".", end="", flush=True) #Progress on screen
     print()  # Newline after progress dots
@@ -833,58 +835,64 @@ def _calculate_moving_average_all_numeric(df: pl.DataFrame, window_size: int) ->
 
     return moving_avg_df
 
+def _normalize_measure_columns(df, columns):
+    """Min-Max normalize a set of columns belonging to the same measure."""
+    # Combine all numeric columns to find the global min and max
+    #combined_non_nulls = df.select(columns).drop_nulls()
+    df = df.select(columns)
+    combined_non_nulls = df.with_columns(pl.all().fill_null(pl.all().median()))
+    # Calculate the global minimum and maximum across the columns in this group
+    measure_min = combined_non_nulls.min().select(pl.all()).to_numpy().min()  # Get scalar min
+    measure_max = combined_non_nulls.max().select(pl.all()).to_numpy().max()  # Get scalar max
 
-def _ano_plot_line_scores(df, title):
-    # def _normalize_column(series):
-    #     """Min-Max normalize a column to range [0, 1]."""
-    #     min_val = series.min()
-    #     max_val = series.max()
-    #     return (series - min_val) / (max_val - min_val) if max_val > min_val else series
+    if measure_max == measure_min:
+        return df  # No normalization needed if min and max are the same
 
-    def _normalize_column(series):
-        """Min-Max normalize a column to range [0, 1], keeping None values as gaps."""
-        # Filter out None values for min/max calculation
-        non_none_series = series.drop_nulls()
+    # Normalize each column in the measure group using its own min-max
+    return df.select([
+        ((df[col] - measure_min) / (measure_max - measure_min)).alias(col) for col in columns
+    ])
 
-        if non_none_series.is_empty():
-            return series  # If the series is empty or only contains None, return as is
-
-        min_val = non_none_series.min()
-        max_val = non_none_series.max()
-
-        # Use Polars' vectorized operations for normalization and keep None values
-        normalized_series = (series - min_val) / (max_val - min_val)
-        return normalized_series
-
-    # Dynamically detect numeric columns for plotting
-    numeric_columns = [
-        col for col, dtype in zip(df.columns, df.dtypes) 
-        if dtype in [pl.Float64, pl.Float32, pl.Int64, pl.Int32]  # Add other numeric types if needed
-    ]
+def _ano_plot_line_scores(df, title, display_mode="markers"):
+    # Define the different sets of measures
+    measure_groups = {
+        "kmeans": [col for col in df.columns if "kmeans" in col],
+        "IF": [col for col in df.columns if "IF" in col],
+        "RM": [col for col in df.columns if "RM" in col],
+        "OOVD": [col for col in df.columns if "OOVD" in col]
+    }
 
     # Assuming line_number or row_nr represents the index (X-axis)
     line_numbers = df['line_number'].to_list()
     m_messages = df['m_message'].to_list()  # Hover text for each point
     
-    # Normalize the numeric columns
-    df_normalized = df.with_columns([
-        _normalize_column(df[col]).alias(col) for col in numeric_columns if col in df.columns
-    ])
+    # Create an empty DataFrame for normalized data
+    df_normalized = df
+
+    # Normalize each measure group separately
+    for measure, columns in measure_groups.items():
+        if columns:
+            df_normalized = df_normalized.with_columns(
+                _normalize_measure_columns(df, columns)
+            )
     
     # Create a figure
     fig = go.Figure()
 
-    # Add traces for each normalized numeric column
-    for col in numeric_columns:
-        if col in df_normalized.columns:
-            fig.add_trace(go.Scatter(
-                x=line_numbers,
-                y=df_normalized[col].to_list(),
-                mode='lines',
-                name=col,
-                text=m_messages,  # Set m_message as the hover text
-                hoverinfo='text'  # Show only the text in the tooltip
-            ))
+    # Add traces for each normalized column
+    for measure, columns in measure_groups.items():
+        for col in columns:
+            if col in df_normalized.columns:
+                fig.add_trace(go.Scatter(
+                    x=line_numbers,
+                    y=df_normalized[col].to_list(),
+                    mode=display_mode,  # Use the display_mode parameter ('lines', 'markers', or 'lines+markers')
+                    name=col,
+                    #text=m_messages,  # Set m_message as the hover text
+                    text=[f"Log: {msg[:100]}<br>{msg[100:205]}" for ln, msg in zip(line_numbers, m_messages)],  # Break into two lines for m_message                    hoverinfo='text',  # Show only the text in the tooltip
+                    connectgaps=False,  # Show gaps where there are None values
+                    marker=dict(symbol="x", size=4),
+                ))
     
     # Update layout
     fig.update_layout(
