@@ -578,15 +578,22 @@ def calculate_zscore_sum(results):
     list of dicts: Updated results with an additional 'zscore_sum' key for each run.
     """
     
-    # Create the distance matrix from the results
+    # Create the distance matrix from the results, explicitly replacing None with np.nan
     distance_matrix = np.array([
-        [result["cosine"], result["jaccard"], result["compression"], result["containment"]]
+        [
+            np.nan if result.get("cosine") is None else result["cosine"],
+            np.nan if result.get("jaccard") is None else result["jaccard"],
+            np.nan if result.get("compression") is None else result["compression"],
+            np.nan if result.get("containment") is None else result["containment"]
+        ]
         for result in results
     ])
     
-    # Normalize each distance column using z-scores
-    normalized_distances = np.apply_along_axis(zscore, axis=0, arr=distance_matrix)
-    
+    # Normalize each distance column using z-scores, ignoring NaN values
+    normalized_distances = np.apply_along_axis(lambda col: zscore(col, nan_policy='omit'), axis=0, arr=distance_matrix)
+
+
+
     # Sum the normalized distances for each comparison run
     zscore_sum = normalized_distances.sum(axis=1)
     

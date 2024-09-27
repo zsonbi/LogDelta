@@ -41,18 +41,21 @@ def main(config_path):
     # Normalize data
     enhancer = EventLogEnhancer(df)
     print("Normalizing data")
-    # Different options for normalization. Should be in a config
+    # Different options for normalization. 
+    # TODO Should be in a config
     # df = enhancer.normalize(regexs=masking_patterns_myllari)
     # df = enhancer.normalize()
     df = enhancer.normalize(regexs=masking_patterns_myllari2)
     print("Parsing event templates")
 
+    #TODO  Make this optional. When bad characters in input all parser. Tipping, Drain etc will fail. 
+    df = enhancer.parse_tip() #Parsing might fail if bad chracters in input. Comment out this line. 
 
-    # Display rows where lossy encoding has occurred
-    #print(lossy_encoded_df)
-    # Make this optional. When bad characters in input all parser. Tipping, Drain etc will fail. 
-    df = enhancer.parse_tip()
+    #Other parsing options. 
     #df = enhancer.parse_drain()
+    #pl-iplom requires words. 
+    #df = enhancer.words()
+    #df = enhancer.parse_pliplom()
 
     # Data-specific preprocessing
     df = preprocess_files(df, config.get('preprocessing_steps', []))
