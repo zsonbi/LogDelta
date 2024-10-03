@@ -137,7 +137,7 @@ def plot_run(df: pl.DataFrame, target_run: str, comparison_runs="ALL", file=True
     # Filter out target run and comparison runs from the DataFrame
     runs_to_include = [target_run] + comparison_run_names
     filtered_df = df.filter(pl.col("run").is_in(runs_to_include))
-    filtered_df, field = _plot_prepare_content(filtered_df, normalize_content, content_format=content_format)
+    filtered_df, field = _prepare_content(filtered_df, normalize_content, content_format=content_format)
     #print (f"field: {field}")
     run_file_groups, documents = _plot_aggregate_run_file_groups(filtered_df, field, content_format, group_by_indices)
     embeddings_2d, num_unique_words_per_file = _plot_create_dtm_and_umap(documents, content_format, vectorizer, random_seed=None)
@@ -190,7 +190,7 @@ def _plot_group_runs_by_indices(df: pl.DataFrame, group_by_indices: list[int]) -
     df = df.with_columns(df_new)
     return df
 
-def _plot_prepare_content(df, normalize_content, content_format):
+def _prepare_content(df, normalize_content, content_format):
     """
     Function to process content (words, trigrams, etc.)  if content format SKLearn or not specified 
     """
@@ -202,13 +202,23 @@ def _plot_prepare_content(df, normalize_content, content_format):
     elif content_format == "3grams":
         df = enhancer.trigrams(field)
         return df, "e_trigrams"
-    elif content_format == "Parse":
-        df = enhancer.parse_tip(field)
-        return df, "e_event_tip_id"
     elif content_format == "File":
         return df, "file_name"
     elif content_format == "Sklearn":
         return df, field
+    elif content_format.startswith("Parse-"):
+        # Extract the part after "Parse-" and create dynamic method and field
+        parse_type = content_format.split("-")[1].lower()
+        method_name = f"parse_{parse_type}"
+        field_name = f"e_event_{parse_type}_id"
+        
+        # Dynamically call the corresponding method if it exists
+        if hasattr(enhancer, method_name):
+            method = getattr(enhancer, method_name)
+            df = method(field)
+            return df, field_name
+        else:
+            raise ValueError(f"No parse method found for {parse_type}")
     else:
         print(f"Unrecognized content format: {content_format}. Valid options: Words, 3grams, Parse, Sklearn, File")
         raise ValueError(f"Unrecognized content format: {content_format}. Valid options: Words, 3grams, Parse, Sklearn, File")
@@ -230,7 +240,7 @@ def _plot_aggregate_run_file_groups(filtered_df_file, field, content_format, gro
     """
 
     # Handle 'Sklearn' or 'Parse' content formats (no exploding, just aggregation)
-    if content_format == "Sklearn" or content_format == "Parse":
+    if content_format == "Sklearn" or content_format.startswith("Parse-"):
         if group_by_indices:
             run_file_groups = filtered_df_file.select("run", field, "group").group_by("run").agg(
                 pl.col(field),  # Keep the string column intact for later use in CountVectorizer or if Parse
@@ -247,7 +257,7 @@ def _plot_aggregate_run_file_groups(filtered_df_file, field, content_format, gro
                 pl.col("group").first()
             )
         else: 
-            run_file_groups = filtered_df_file.select("run", field, "group").group_by("run").agg(
+            run_file_groups = filtered_df_file.select("run", field).group_by("run").agg(
                 pl.col("file_name").unique()
             )
     else:
@@ -396,7 +406,7 @@ def _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, tar
         color="group",  # Color based on groups or a single color
         symbol=marker_symbols,  # Set custom marker symbols
         color_discrete_map=color_discrete_map,  # Set custom colors based on groups or a single color
-        hover_data={"run": True, x_title: False, "Lines": False},  # Only show the run, hide UMAP coordinates
+        hover_data={"run": True, x_title: True, "Lines": True, "group":False},  # Only show the run, hide UMAP coordinates
         title=title,
         log_y=True  # Set the Y-axis to log scale
     )
@@ -432,7 +442,7 @@ def plot_file_content(df: pl.DataFrame, target_run: str, comparison_runs="ALL", 
     filtered_df = df.filter(pl.col("run").is_in(runs_to_include))
     target_files = _prepare_files(df_run1, target_files)
 
-    filtered_df, field = _plot_prepare_content(filtered_df, normalize_content, content_format=content_format)
+    filtered_df, field = _prepare_content(filtered_df, normalize_content, content_format=content_format)
 
     for file in target_files:
         filtered_df_file = filtered_df.filter(pl.col("file_name") == file).sort("file_name")
@@ -780,7 +790,7 @@ def anomaly_line_content(df, target_run, comparison_runs="ALL", target_files="AL
     - comparison_runs: Optional list of run names to compare against. If ALL, compares against all other runs.
     """
     # Extract unique runs
-    df, field = _plot_prepare_content(df, normalize_content, content_format=content_format) 
+    df, field = _prepare_content(df, normalize_content, content_format=content_format) 
 
     df_run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs) 
     print(
@@ -1141,53 +1151,3 @@ def write_dataframe_to_csv(df, analysis, level=0, target_run="", comparison_run=
         df.write_html(output_path)
     #print(f"Results saved to {output_path}")
     
-masking_patterns_myllari = [
-    ("${start}<QUOTED_ALPHANUMERIC>${end}", r"(?P<start>[^A-Za-z0-9-_]|^)'[a-zA-Z0-9-_]{16,}'(?P<end>[^A-Za-z0-9-_]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^0-9/]|^)\d{2}/\d{2}/\d{4}(?P<end>[^0-9/]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^0-9-]|^)\d{4}-\d{2}-\d{2}(?P<end>[^0-9-]|$)"),
-    ("${start}<DATE_XX>${end}", r"(?P<start>[^A-Za-z0-9_]|^)DATE_\d{2}(?P<end>[^A-Za-z0-9_]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^A-Za-z]|^)\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b(?P<end>[^A-Za-z]|$)"),
-    ("${start}<TIME>${end}", r"(?P<start>[^0-9:.]|^)\d{2}:\d{2}(?::\d{2}(?:\.\d{3})?)?(?P<end>[^0-9:.]|$)"),
-    ("${start}<TIME>${end}", r"(?P<start>[^0-9:]|^)\d{2}:\d{2}(?P<end>[^0-9:]|$)"),
-    ("${start}<DATETIME>${end}", r"(?P<start>[^0-9.]|^)\d{1,2}\.\d{1,2}\.\d{4} \d{1,2}\.\d{1,2}\.\d{2}(?P<end>[^0-9.]|$)"),
-    ("${start}<VERSION>${end}", r"(?P<start>[^0-9.]|^)\d{1,5}(?:\.\d{1,3}){1,4}(?P<end>[^0-9.]|$)"),
-    ("${start}<URL>${end}", r"(?P<start>[^A-Za-z0-9:/]|^)(https?://[^\s]+)(?P<end>[^A-Za-z0-9:/]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^A-Za-z]|^)\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{2}| \d) \d{4}\b(?P<end>[^A-Za-z]|$)"),
-    ("${start}<TXID>${end}", r"(?P<start>[^0-9A-Fa-f-]|^)\d{4}-[0-9A-Fa-f]{16}(?P<end>[^0-9A-Fa-f-]|$)"),
-    ("${start}<FILEPATH>${end}", r"(?P<start>[^A-Za-z0-9:\\]|^)[A-Za-z]:\\(?:[^\\\n]+\\)*[^\\\n]+(?P<end>[^A-Za-z0-9:\\]|$)"),
-    ("${start}<APIKEY>${end}", r"(?P<start>[^A-Za-z0-9\"]|^)\"x-apikey\":\s\"[^\"]+\"(?P<end>[^A-Za-z0-9\"]|$)"),
-    ("${start}<TIMEMS>${end}", r"(?P<start>[^0-9ms]|^)\b\d+\s+ms\b(?P<end>[^0-9ms]|$)"),
-    ("${start}<SECONDS>${end}", r"(?P<start>[^0-9s-]|^)-?\d{1,4}s(?P<end>[^0-9s-]|$)"),
-    ("${start}<HEXBLOCKS>${end}", r"(?P<start>[^0-9A-Fa-f-]|^)(?:[0-9A-Fa-f]{4,}-)+[0-9A-Fa-f]{4,}(?P<end>[^0-9A-Fa-f-]|$)"),
-    ("${start}<HEX>${end}", r"(?P<start>[^0-9A-Fa-f]|^)0x[0-9A-Fa-f]+(?P<end>[^0-9A-Fa-f]|$)"),
-    ("${start}<HEX>${end}", r"(?P<start>[^0-9A-Fa-f]|^)([0-9A-Fa-f]{6,})(?P<end>[^0-9A-Fa-f]|$)"),
-    ("${start}<LARGEINT>${end}", r"(?P<start>[^0-9]|^)\d{4,}(?P<end>[^0-9]|$)")
-    # Additional patterns can be added here in the same format
-]
-
-masking_patterns_myllari2 = [
-    ("${start}<QUOTED_ALPHANUMERIC>${end}", r"(?P<start>[^A-Za-z0-9-_]|^)'[a-zA-Z0-9-_]{16,}'(?P<end>[^A-Za-z0-9-_]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^0-9/]|^)\d{2}/\d{2}/\d{4}(?P<end>[^0-9/]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^0-9-]|^)\d{4}-\d{2}-\d{2}(?P<end>[^0-9-]|$)"),
-    ("${start}<DATE_XX>${end}", r"(?P<start>[^A-Za-z0-9_]|^)DATE_\d{2}(?P<end>[^A-Za-z0-9_]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^A-Za-z]|^)\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b(?P<end>[^A-Za-z]|$)"),
-    ("${start}<TIME>${end}", r"(?P<start>[^0-9:]|^)\d{2}:\d{2}:\d{2},\d{3}(?P<end>[^0-9:]|$)"),  # New pattern for HH:MM:SS,MMM format
-    ("${start}<TIME>${end}", r"(?P<start>[^0-9:.]|^)\d{2}:\d{2}(?::\d{2}(?:\.\d{3})?)?(?P<end>[^0-9:.]|$)"),
-    ("${start}<TIME>${end}", r"(?P<start>[^0-9:]|^)\d{2}:\d{2}(?P<end>[^0-9:]|$)"),
-    ("${start}<DATETIME>${end}", r"(?P<start>[^0-9.]|^)\d{1,2}\.\d{1,2}\.\d{4} \d{1,2}\.\d{1,2}\.\d{2}(?P<end>[^0-9.]|$)"),
-    ("${start}<VERSION>${end}", r"(?P<start>[^0-9.]|^)\d{1,5}(?:\.\d{1,3}){1,4}(?P<end>[^0-9.]|$)"),
-    ("${start}<URL>${end}", r"(?P<start>[^A-Za-z0-9:/]|^)(https?://[^\s]+)(?P<end>[^A-Za-z0-9:/]|$)"),
-    ("${start}<DATE>${end}", r"(?P<start>[^A-Za-z]|^)\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{2}| \d) \d{4}\b(?P<end>[^A-Za-z]|$)"),
-    ("${start}<TXID>${end}", r"(?P<start>[^0-9A-Fa-f-]|^)\d{4}-[0-9A-Fa-f]{16}(?P<end>[^0-9A-Fa-f-]|$)"),
-    ("${start}<FILEPATH>${end}", r"(?P<start>[^A-Za-z0-9:\\]|^)[A-Za-z]:\\(?:[^\\\n]+\\)*[^\\\n]+(?P<end>[^A-Za-z0-9:\\]|$)"),
-    ("${start}<APIKEY>${end}", r"(?P<start>[^A-Za-z0-9\"]|^)\"x-apikey\":\s\"[^\"]+\"(?P<end>[^A-Za-z0-9\"]|$)"),
-    ("${start}<TIMEMS>${end}", r"(?P<start>[^0-9ms]|^)\b\d+\s+ms\b(?P<end>[^0-9ms]|$)"),
-    ("${start}<SECONDS>${end}", r"(?P<start>[^0-9s-]|^)-?\d{1,4}s(?P<end>[^0-9s-]|$)"),
-    ("${start}<HEXBLOCKS>${end}", r"(?P<start>[^0-9A-Fa-f-]|^)(?:[0-9A-Fa-f]{4,}-)+[0-9A-Fa-f]{4,}(?P<end>[^0-9A-Fa-f-]|$)"),
-    ("${start}<HEX>${end}", r"(?P<start>[^0-9A-Fa-f]|^)0x[0-9A-Fa-f]+(?P<end>[^0-9A-Fa-f]|$)"),
-    ("${start}<HEX>${end}", r"(?P<start>[^0-9A-Fa-f]|^)([0-9A-Fa-f]{6,})(?P<end>[^0-9A-Fa-f]|$)"),
-    ("${start}<LARGEINT>${end}", r"(?P<start>[^0-9]|^)\d{4,}(?P<end>[^0-9]|$)"),
-    ("${start}<IP>${end}", r"(?P<start>[^A-Za-z0-9]|^)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?P<end>[^A-Za-z0-9]|$)"),
-    ("${start}<NUM>${end}", r"(?P<start>[^A-Za-z0-9]|^)([\-\+]?[1-9]\d+)(?P<end>[^A-Za-z0-9]|$)")
-]
-

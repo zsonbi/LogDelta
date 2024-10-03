@@ -8,8 +8,9 @@ from log_analysis_functions import (
     distance_file_content, distance_line_content,
     plot_run, plot_file_content,
     anomaly_file_content, anomaly_line_content,
-    anomaly_run, masking_patterns_myllari, masking_patterns_myllari2
+    anomaly_run
 )
+import regex_masking
 from data_specific_preprocessing import preprocess_files
 import inspect
 
@@ -37,31 +38,55 @@ def main(config_path):
 
     # Read data
     df, _ = read_folders(input_data_folder)
-
-    # Normalize data
+ 
+    
+    # Check if masking is enabled
     enhancer = EventLogEnhancer(df)
-    print("Normalizing data")
-    # Different options for normalization. 
-    # TODO Should be in a config
-    # df = enhancer.normalize(regexs=masking_patterns_myllari)
-    # df = enhancer.normalize()
-    df = enhancer.normalize(regexs=masking_patterns_myllari2)
-    print("Parsing event templates")
+    if config['regex_masking']['enabled']:
+        # Retrieve and apply patterns
+        print("Masking data")
+        patterns = config['regex_masking']['pattern']  # This is a list of patterns
+        if len(patterns) > 1:
+            print("Warning: Multiple masking patterns detected. Only the last masking will have an effect.") #https://github.com/EvoTestOps/LogLead/issues/38
+        
+        # Apply the patterns in a loop (currently only the last one will be used)
+        for pattern in patterns:
+            pattern_name = pattern['name']
+            print(f"Applying pattern: {pattern_name}")
+            if hasattr(regex_masking, pattern_name):
+                pattern_list = getattr(regex_masking, pattern_name)
+                df = enhancer.normalize(regexs=pattern_list)
+            else:
+                print(f"Unknown masking pattern: {pattern_name}")
+    else:
+        print("Masking is disabled.")
 
-    #TODO  Make this optional. When bad characters in input all parser. Tipping, Drain etc will fail. 
-    df = enhancer.parse_tip() #Parsing might fail if bad chracters in input. Comment out this line. 
-
-    #Other parsing options. 
-    #df = enhancer.parse_drain()
-    #pl-iplom requires words. 
-    #df = enhancer.words()
-    #df = enhancer.parse_pliplom()
+    # Check if pre-parse is enabled
+    if config['pre_parse']['enabled'] and config['regex_masking']['enabled']:
+        # Retrieve and apply patterns
+        print("Parsing event templates")
+        parsers = config['pre_parse']['parsers']  # This is a list of patterns
+        
+        # Apply the patterns in a loop (currently only the last one will be used)
+        for parser in parsers:
+            parser_name = parser['name']
+            method_name = parser_name.split("-")[1].lower()
+            method_name = f"parse_{method_name}"
+            print(f"Parsing with: {parser_name}")
+        # Dynamically call the corresponding method if it exists
+            if hasattr(enhancer, method_name):
+                method = getattr(enhancer, method_name)
+                df = method()
+            else:
+                raise ValueError(f"No parse method found for {parse_type}")
+    else:
+        print("No pre-parsing")
 
     # Data-specific preprocessing
     df = preprocess_files(df, config.get('preprocessing_steps', []))
 
+    #Start analysis steps
     steps = config.get('steps', {})
-
     # Map step types that need to be handled differently
     special_cases = {
         'plot_run_file': {'func_name': 'plot_run', 'fixed_args': {'file': True, 'content_format':'File'}},
