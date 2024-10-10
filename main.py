@@ -4,7 +4,7 @@ import warnings
 from dotenv import load_dotenv, find_dotenv
 from loglead.enhancers import EventLogEnhancer
 from log_analysis_functions import (
-    set_output_folder, read_folders, distance_run_file, distance_run_content,
+    set_output_folder_and_format, read_folders, distance_run_file, distance_run_content,
     distance_file_content, distance_line_content,
     plot_run, plot_file_content,
     anomaly_file_content, anomaly_line_content,
@@ -26,7 +26,8 @@ def main(config_path):
 
     # Set output folder
     output_folder = config.get('output_folder')
-    set_output_folder(output_folder)
+    table_output = config.get('table_output')
+    set_output_folder_and_format(output_folder, table_output)
 
     # Set input data folder
     input_data_folder = config.get('input_data_folder')
@@ -91,7 +92,7 @@ def main(config_path):
     special_cases = {
         'plot_run_file': {'func_name': 'plot_run', 'fixed_args': {'file': True, 'content_format':'File'}},
         'plot_run_content': {'func_name': 'plot_run', 'fixed_args': {'file': False}},
-        'anomaly_run_file': {'func_name': 'anomaly_run', 'fixed_args': {'file': True}},
+        'anomaly_run_file': {'func_name': 'anomaly_run', 'fixed_args': {'file': True, 'content_format':'File'}},
         'anomaly_run_content': {'func_name': 'anomaly_run', 'fixed_args': {'file': False}},
     }
 
