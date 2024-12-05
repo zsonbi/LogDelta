@@ -25,10 +25,47 @@ def set_output_folder_and_format(folder_path, table_output_format):
         folder_path (str): The path to the output folder.
     """
     global output_folder  # Declare that we're modifying the global variable
+    folder_path = _get_abs_path(folder_path, create=True)
     output_folder = folder_path
     global table_output
     table_output = table_output_format
     print(f"Output folder set to: {output_folder}, Table output format: {table_output}")
+
+
+def _get_abs_path_OLD(path):
+    if not os.path.isabs(path):
+        invocation_dir = os.getenv("PWD")
+        if not invocation_dir:
+            # Fallback if PWD isn't set (e.g., on some systems)
+            invocation_dir = os.getcwd()
+        abs_path = os.path.join(invocation_dir, path)
+        if not os.path.exists(abs_path):
+            raise FileNotFoundError(f"Folder not found: {abs_path}")
+        return abs_path
+    return path
+
+def _get_abs_path(path, create=False):
+    """
+    Get the absolute path of a given directory. If the path is relative, it is resolved
+    against the current working directory. If `create` is True, the folder is created
+    if it does not exist.
+    """
+    if not os.path.isabs(path):
+        invocation_dir = os.getenv("PWD")
+        if not invocation_dir:
+            # Fallback if PWD isn't set (e.g., on some systems)
+            invocation_dir = os.getcwd()
+        abs_path = os.path.join(invocation_dir, path)
+    else:
+        abs_path = path
+
+    if not os.path.exists(abs_path):
+        if create:
+            os.makedirs(abs_path)
+        else:
+            raise FileNotFoundError(f"Folder not found: {abs_path}")
+    
+    return abs_path
 
 def read_folders(folder, filename_pattern= "*.log"):
     """
@@ -48,7 +85,8 @@ def read_folders(folder, filename_pattern= "*.log"):
         - Filters out rows with null or non-UTF-8 message content.
         - Extracts and processes 'run' and 'file_name' fields from the file paths.
     """
-
+    folder = _get_abs_path(folder)
+    print(f"Loading data from: {folder}")
     loader = RawLoader(folder, filename_pattern=filename_pattern, strip_full_data_path=folder)
     df = loader.execute()
     df = df.filter(pl.col("m_message").is_not_null()) #We lose lines with nulls. 
@@ -65,6 +103,64 @@ def read_folders(folder, filename_pattern= "*.log"):
     return df, unique_runs
 
 def _prepare_runs(df, target_run, comparison_runs="ALL"):
+    """
+    Prepares and validates the base and comparison runs from the dataframe.
+
+    Parameters:
+    - df: Polars DataFrame containing the data with a 'run' column.
+    - target_run: The name of the base run to compare against other runs.
+    - comparison_runs: List of comparison run names, 'ALL' to compare against all other runs, 
+      or an integer specifying the number of comparison runs (default is 'ALL').
+
+    Returns:
+    - base_run_df: DataFrame containing the data for the base run.
+    - validated_comparison_runs: List of comparison run names to be compared with the base run.
+
+    Raises:
+    - ValueError: If the base run name or any comparison run name is not found in the dataframe.
+    """
+    # Extract unique runs
+    unique_runs = df.select("run").unique().sort("run").to_series().to_list()
+
+    # Validate base run name
+    if target_run not in unique_runs:
+        raise ValueError(f"Base run name '{target_run}' not found in the dataframe. Please provide a valid run name.")
+    
+    # Get the data for the base run
+    base_run_df = df.filter(pl.col("run") == target_run)
+    
+    # Initialize the validated_comparison_runs variable
+    validated_comparison_runs = []
+
+    if comparison_runs == "ALL":
+        # Use all other runs except the base run
+        validated_comparison_runs = [run for run in unique_runs if run != target_run]
+    elif isinstance(comparison_runs, int):
+        # Ensure the number is valid
+        if comparison_runs < 1 or comparison_runs > len(unique_runs) - 1:
+            raise ValueError(f"Number of comparison runs must be between 1 and {len(unique_runs) - 1}.")
+        # Exclude the base run and select the specified number of runs
+        validated_comparison_runs = [run for run in unique_runs if run != target_run][:comparison_runs]
+    elif isinstance(comparison_runs, str) and "*" in comparison_runs:
+        import re
+        # Convert wildcard pattern to regex
+        regex_pattern = re.escape(comparison_runs).replace(r"\*", ".*")
+        pattern = re.compile(f"^{regex_pattern}$")
+        # Filter runs matching the regex pattern
+        validated_comparison_runs = [run for run in unique_runs if pattern.match(run) and run != target_run]
+        if not validated_comparison_runs:
+            raise ValueError(f"No runs match the wildcard pattern '{comparison_runs}'.")
+    else:
+        # Assume comparison_runs is a list and validate all provided comparison runs
+        comparison_runs_list = [run for run in comparison_runs if run != target_run]
+        if not all(run in unique_runs for run in comparison_runs_list):
+            invalid_runs = [run for run in comparison_runs_list if run not in unique_runs]
+            raise ValueError(f"Comparison run names {invalid_runs} not found in the dataframe. Please provide valid run names.")
+        validated_comparison_runs = comparison_runs_list
+
+    return base_run_df, validated_comparison_runs
+
+def _prepare_runs_OLD(df, target_run, comparison_runs="ALL"):
     """
     Prepares and validates the base and comparison runs from the dataframe.
 
@@ -101,6 +197,15 @@ def _prepare_runs(df, target_run, comparison_runs="ALL"):
             raise ValueError(f"Number of comparison runs must be between 1 and {len(unique_runs) - 1}.")
         # Exclude the base run and select the specified number of runs
         comparison_runs = [run for run in unique_runs if run != target_run][:comparison_runs]
+    elif isinstance(comparison_runs, str) and "*" in comparison_runs:
+        import re
+        # Convert wildcard pattern to regex
+        regex_pattern = re.escape(comparison_runs).replace(r"\*", ".*")
+        pattern = re.compile(f"^{regex_pattern}$")
+        # Filter runs matching the regex pattern
+        comparison_runs = [run for run in unique_runs if pattern.match(run) and run != target_run]
+        if not comparison_runs:
+            raise ValueError(f"No runs match the wildcard pattern '{comparison_runs}'.")
     else:
         # Remove the target run if it's present in the comparison runs
         comparison_runs = [run for run in comparison_runs if run != target_run]
@@ -123,6 +228,15 @@ def _check_multiple_target_runs(df, base_runs):
             raise ValueError(f"Number of base runs must be between 1 and {len(unique_runs) - 1}.")
         # Exclude the base run and select the specified number of runs
         base_runs = unique_runs[:base_runs]
+    elif isinstance(base_runs, str) and "*" in base_runs:
+        # Convert the glob-like pattern to a regex and filter available files
+        import re
+        pattern = re.compile(base_runs.replace(".", r"\.").replace("*", ".*"))
+        matched_runs = [file for file in unique_runs if pattern.match(file)]
+        if not matched_runs:
+            raise ValueError(f"No runs matched the pattern: {base_runs} in {unique_runs} ")
+        print (f"matched files {matched_runs}")
+        base_runs = matched_runs
     else:
         # If base_runs is a single string, convert it to a list
         if isinstance(base_runs, str):
@@ -133,7 +247,7 @@ def _check_multiple_target_runs(df, base_runs):
             raise ValueError(f"Comparison run names {invalid_runs} not found in the dataframe. Please provide valid run names.")
     return base_runs
 
-def plot_run(df: pl.DataFrame, target_run: str, comparison_runs="ALL", file=True, random_seed=None, group_by_indices=None, normalize_content=False, content_format="Words", vectorizer="Count"):
+def plot_run(df: pl.DataFrame, target_run: str, comparison_runs="ALL", file=True, random_seed=None, group_by_indices=None, mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Create a UMAP plot based on a document-term matrix of file names and save it as an interactive HTML file.
     
@@ -151,14 +265,14 @@ def plot_run(df: pl.DataFrame, target_run: str, comparison_runs="ALL", file=True
 
     _, comparison_run_names = _prepare_runs(df, target_run, comparison_runs)
     print(
-        f"Executing {inspect.currentframe().f_code.co_name} with {'file' if file else 'content'} norm={normalize_content} with {content_format} and Vectorizer:{vectorizer} target run '{target_run}' and {len(comparison_run_names)} comparison runs"
+        f"Executing {inspect.currentframe().f_code.co_name} with {'file' if file else 'content'} mask={mask} with {content_format} and Vectorizer:{vectorizer} target run '{target_run}' and {len(comparison_run_names)} comparison runs"
         + (f": {comparison_run_names}" if len(comparison_run_names) < 6 else "")
     )
 
     # Filter out target run and comparison runs from the DataFrame
     runs_to_include = [target_run] + comparison_run_names
     filtered_df = df.filter(pl.col("run").is_in(runs_to_include))
-    filtered_df, field = _prepare_content(filtered_df, normalize_content, content_format=content_format)
+    filtered_df, field = _prepare_content(filtered_df, mask, content_format=content_format)
     #print (f"field: {field}")
     run_file_groups, documents = _plot_aggregate_run_file_groups(filtered_df, field, content_format, group_by_indices)
     embeddings_2d, num_unique_words_per_file = _plot_create_dtm_and_umap(documents, content_format, vectorizer, random_seed=None)
@@ -173,8 +287,8 @@ def plot_run(df: pl.DataFrame, target_run: str, comparison_runs="ALL", file=True
     fig1, fig2 = _plot_create_umap_plot(combined_data, run_file_groups, group_by_indices, target_run, file)
     
     #fig = _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, target_run, file)
-    _write_output(fig1, analysis="plot_umap", level=1 if file else 2, norm=normalize_content, target_run=target_run, comparison_run="Many", content_format=content_format, vectorizer=vectorizer)
-    _write_output(fig2, analysis="plot_simple", level=1 if file else 2, norm=normalize_content, target_run=target_run, comparison_run="Many", content_format=content_format, vectorizer=vectorizer)
+    _write_output(fig1, analysis=f"plot_run_{'file' if file else 'content'}_umap", level=1 if file else 2, mask=mask, target_run=target_run, comparison_run="Many", content_format=content_format, vectorizer=vectorizer, file_name_prefix=file_name_prefix)
+    _write_output(fig2, analysis=f"plot_run_{'file' if file else 'content'}_simple", level=1 if file else 2, mask=mask, target_run=target_run, comparison_run="Many", content_format=content_format, vectorizer=vectorizer, file_name_prefix=file_name_prefix)
 
 def _plot_group_runs_by_indices(df: pl.DataFrame, group_by_indices: list[int]) -> pl.DataFrame:
     """
@@ -211,11 +325,11 @@ def _plot_group_runs_by_indices(df: pl.DataFrame, group_by_indices: list[int]) -
     df = df.with_columns(df_new)
     return df
 
-def _prepare_content(df, normalize_content, content_format):
+def _prepare_content(df, mask, content_format):
     """
     Function to process content (words, trigrams, etc.)  if content format SKLearn or not specified 
     """
-    field = "e_message_normalized" if normalize_content else "m_message"
+    field = "e_message_normalized" if mask else "m_message"
     enhancer = EventLogEnhancer(df)
     if content_format == "Words":
         df = enhancer.words(field)
@@ -387,16 +501,16 @@ def _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, tar
     - file: The file name for which the UMAP plot is being created.
 
     Returns:
-    - fig: Plotly scatter plot figure object.
+    - fig1: First Plotly scatter plot figure object.
+    - fig2: Second Plotly scatter plot figure object.
     """
 
-    if  isinstance(file, str):
-        title = f"{file} distances - Target run: {target_run} with diamond"
+    if isinstance(file, str):
+        title = f"Textual Content Comparison Between Files: {file} <br>Target run with diamond:<br>{target_run}"
     elif file:
-        title = f"Run (file) distances - Target run: {target_run} with diamond"    
+        title = f"Filename Comparison Between Runs <br>Target run with diamond:<br>{target_run}"    
     else:
-        title = f"Run (content) distances - Target run: {target_run} with diamond"    
-
+        title = f"Textual Content Comparison Between Runs <br>Target run with diamond:<br>{target_run}"    
 
     # Extract run labels from the run_file_groups DataFrame
     run_labels = run_file_groups["run"].to_list()
@@ -410,10 +524,19 @@ def _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, tar
         group_labels = ['all'] * len(run_labels)
         color_discrete_map = {'all': 'blue'}
 
+    # Calculate ranges for UMAP1 and UMAP2
+    #range_x = embeddings_2d[:, 0].max() - embeddings_2d[:, 0].min()
+    #range_y = embeddings_2d[:, 1].max() - embeddings_2d[:, 1].min()
+
+    # Add jitter proportional to the range of each axis
+    jitter_strength = 0.0033  # Base jitter strength
+    #jitter_x = np.random.normal(0, jitter_strength * range_x, size=embeddings_2d.shape[0])
+    #jitter_y = np.random.normal(0, jitter_strength * range_y, size=embeddings_2d.shape[0])
+
     # Create a Polars DataFrame for plotting
     plot_df = pl.DataFrame({
-        "UMAP1": embeddings_2d[:, 0],
-        "UMAP2": embeddings_2d[:, 1],
+        "UMAP1": embeddings_2d[:, 0], #+ jitter_x,  # Add jitter to X-axis
+        "UMAP2": embeddings_2d[:, 1], #+ jitter_y,  # Add jitter to Y-axis
         "run": run_labels,
         "group": group_labels  # Add group labels for coloring
     })
@@ -430,19 +553,33 @@ def _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, tar
         symbol=marker_symbols,  # Set custom marker symbols
         color_discrete_map=color_discrete_map,  # Set custom colors based on groups or a single color
         hover_data={"run": True, "UMAP1": False, "UMAP2": False},  # Only show the run, hide UMAP coordinates
-        title=title
+        title=title,
+        opacity=0.7  # Add opacity
     )
-     # Create a Polars DataFrame for plotting
 
+    # Adjust jitter for second plot
     if file == True:
         x_title = "Files"
     else:
         x_title = "Unique terms"
 
+    #Simple plot needs jitter. Lines and unique line count can be the same often. 
+    jitter_strength = 0.0033
+    range_x_2 = embeddings_2d[:, 2].max() - embeddings_2d[:, 2].min()
+    #range_y_2 = embeddings_2d[:, 3].max() - embeddings_2d[:, 3].min()
+    jitter_x_2 = np.random.normal(0, jitter_strength * range_x_2, size=embeddings_2d.shape[0])
+    #jitter_y_2 = np.random.normal(0, jitter_strength * range_y_2, size=embeddings_2d.shape[0])
+
+    # Y-axis is log scaled. Log-transformed jitter for Lines (Y-axis)
+    log_lines_values = np.log10(embeddings_2d[:, 3] + 1e-10)  # Avoid log(0)
+    log_lines_range = log_lines_values.max() - log_lines_values.min()
+
+    jitter_lines_log = np.random.normal(0, jitter_strength * log_lines_range, size=embeddings_2d.shape[0])
+    jittered_lines = 10 ** (log_lines_values + jitter_lines_log)  # Back to linear scale
 
     plot_df = pl.DataFrame({
-        x_title: embeddings_2d[:, 2],
-        "Lines": embeddings_2d[:, 3],
+        x_title: embeddings_2d[:, 2] + jitter_x_2,
+        "Lines": jittered_lines,
         "run": run_labels,
         "group": group_labels  # Add group labels for coloring
     })
@@ -450,7 +587,7 @@ def _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, tar
     plot_dict = plot_df.to_dict(as_series=False)
     # Define marker symbols: 'cross' for target run, 'circle' for others
     marker_symbols = ['circle' if run != target_run else 'cross' for run in run_labels]
-    # Create the interactive UMAP plot using Plotly
+    # Create the interactive simple plot y=Lines vs x= Unique Names plot using Plotly
     fig2 = px.scatter(
         plot_dict,
         x=x_title,
@@ -458,15 +595,15 @@ def _plot_create_umap_plot(embeddings_2d, run_file_groups, group_by_indices, tar
         color="group",  # Color based on groups or a single color
         symbol=marker_symbols,  # Set custom marker symbols
         color_discrete_map=color_discrete_map,  # Set custom colors based on groups or a single color
-        hover_data={"run": True, x_title: True, "Lines": True, "group":False},  # Only show the run, hide UMAP coordinates
+        hover_data={"run": True, x_title: True, "Lines": True, "group": False},  # Only show the run, hide UMAP coordinates
         title=title,
+        opacity=0.7,  # Add opacity
         log_y=True  # Set the Y-axis to log scale
     )
 
-
     return fig1, fig2
 
-def plot_file_content(df: pl.DataFrame, target_run: str, comparison_runs="ALL", target_files="ALL", random_seed=None, group_by_indices=None, normalize_content=False, content_format="Words", vectorizer="Count"):
+def plot_file_content(df: pl.DataFrame, target_run: str, comparison_runs="ALL", target_files="ALL", random_seed=None, group_by_indices=None, mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Create a UMAP plot based on a document-term matrix of file names and save it as an interactive HTML file.
     
@@ -478,14 +615,13 @@ def plot_file_content(df: pl.DataFrame, target_run: str, comparison_runs="ALL", 
     
     The function will create a document-term matrix from the file names for each run.
     """
-    #field = "e_message_normalized" if normalize_content else "m_message"
     # Apply the grouping by indices if specified
     if group_by_indices:
         df = _plot_group_runs_by_indices(df, group_by_indices)
 
     df_run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs)
     print(
-        f"Executing {inspect.currentframe().f_code.co_name} with norm={normalize_content}, {content_format} and Vectorizer:{vectorizer} on target run '{target_run}', target file {target_files} and {len(comparison_run_names)} comparison runs"
+        f"Executing {inspect.currentframe().f_code.co_name} with mask={mask}, {content_format} and Vectorizer:{vectorizer} on target run '{target_run}', target file {target_files} and {len(comparison_run_names)} comparison runs"
         + (f": {comparison_run_names}" if len(comparison_run_names) < 6 else "")
     )
 
@@ -494,7 +630,7 @@ def plot_file_content(df: pl.DataFrame, target_run: str, comparison_runs="ALL", 
     filtered_df = df.filter(pl.col("run").is_in(runs_to_include))
     target_files = _prepare_files(df_run1, target_files)
 
-    filtered_df, field = _prepare_content(filtered_df, normalize_content, content_format=content_format)
+    filtered_df, field = _prepare_content(filtered_df, mask, content_format=content_format)
 
     for file in target_files:
         filtered_df_file = filtered_df.filter(pl.col("file_name") == file).sort("file_name")
@@ -512,10 +648,10 @@ def plot_file_content(df: pl.DataFrame, target_run: str, comparison_runs="ALL", 
         combined_data = np.column_stack((embeddings_2d, num_unique_words_per_file, line_count_values))
 
         fig1, fig2 = _plot_create_umap_plot(combined_data, run_file_groups, group_by_indices, target_run, file)
-        _write_output(fig1, analysis="plot_umap", level=3, target_run=target_run, comparison_run="Many", file=file, norm=normalize_content, content_format=content_format, vectorizer=vectorizer)
-        _write_output(fig2, analysis="plot_simple", level=3, target_run=target_run, comparison_run="Many", file=file, norm=normalize_content, content_format=content_format, vectorizer=vectorizer)
+        _write_output(fig1, analysis="plot_umap", level=3, target_run=target_run, comparison_run="Many", file=file, mask=mask, content_format=content_format, vectorizer=vectorizer, file_name_prefix=file_name_prefix)
+        _write_output(fig2, analysis="plot_simple", level=3, target_run=target_run, comparison_run="Many", file=file, mask=mask, content_format=content_format, vectorizer=vectorizer, file_name_prefix=file_name_prefix)
 
-def distance_run_file(df, target_run, comparison_runs="ALL"):
+def distance_run_file(df, target_run, comparison_runs="ALL", file_name_prefix=""):
     """
     Measure distances between one run and specified other runs in the dataframe and save the results as a CSV file.
     
@@ -568,9 +704,9 @@ def distance_run_file(df, target_run, comparison_runs="ALL"):
     print()  # Newline after progress dots
     # Create a Polars DataFrame from the results
     results_df = pl.DataFrame(results)
-    _write_output(results_df, analysis="dis", level=1, target_run=target_run, comparison_run="Many")
+    _write_output(results_df, analysis="dis", level=1, target_run=target_run, comparison_run="Many", file_name_prefix=file_name_prefix)
 
-def distance_run_content(df, target_run, comparison_runs="ALL", normalize_content=False, content_format="Words", vectorizer="Count"):
+def distance_run_content(df, target_run, comparison_runs="ALL", mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Measure distances between one run and specified other runs in the dataframe and save the results as a CSV file.
     
@@ -581,14 +717,13 @@ def distance_run_content(df, target_run, comparison_runs="ALL", normalize_conten
     - base_run_name: Name of the run to compare against others.
     - comparison_runs: Optional list of run names to compare against. If None, compares against all other runs.
     """
-    #field = "e_message_normalized" if normalize_content else "m_message"
-    df, field = _prepare_content(df, normalize_content, content_format=content_format)
+    df, field = _prepare_content(df, mask, content_format=content_format)
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     # Extract unique runs 
     run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs) 
     results = []
     print(
-        f"Executing {inspect.currentframe().f_code.co_name} with target run '{target_run}' normalized:{normalize_content}, content format:{content_format}, vectorizer:{vectorizer}, field:{field} and {len(comparison_run_names)} comparison runs"
+        f"Executing {inspect.currentframe().f_code.co_name} with target run '{target_run}' normalized:{mask}, content format:{content_format}, vectorizer:{vectorizer}, field:{field} and {len(comparison_run_names)} comparison runs"
         + (f": {comparison_run_names}" if len(comparison_run_names) < 6 else "")
     )
     # Compare the base run to each specified comparison run
@@ -619,13 +754,13 @@ def distance_run_content(df, target_run, comparison_runs="ALL", normalize_conten
         print(".", end="", flush=True)
 
     #Z-score Normalization + Sum of Distances to get one score 
-    results = _calculate_zscore_sum(results)
-
+    #results = _calculate_zscore_sum(results)
+    results = _calculate_zscore_sum_anos(results)
     print()  # Newline after progress dots
     results_df = pl.DataFrame(results)
-    _write_output(results_df, analysis="dis", level=2, target_run=target_run, comparison_run="Many", norm=normalize_content, content_format=content_format, vectorizer=vectorizer)
+    _write_output(results_df, analysis="dis", level=2, target_run=target_run, comparison_run="Many", mask=mask, content_format=content_format, vectorizer=vectorizer, file_name_prefix=file_name_prefix)
 
-def distance_file_content(df, target_run, comparison_runs="ALL", target_files=False, normalize_content=False, content_format="Words", vectorizer="Count"):
+def distance_file_content(df, target_run, comparison_runs="ALL", target_files=False, mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Measure distances between one run and specified other runs in the dataframe and save the results as a CSV file.
     
@@ -637,15 +772,14 @@ def distance_file_content(df, target_run, comparison_runs="ALL", target_files=Fa
     - comparison_runs: Optional list of run names to compare against. If None, compares against all other runs.
     """
     # Extract unique runs
-    #field = "e_message_normalized" if normalize_content else "m_message"
-    df, field = _prepare_content(df, normalize_content, content_format=content_format) 
+    df, field = _prepare_content(df, mask, content_format=content_format) 
     run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs) 
     results = []
     if target_files:
         target_files = _prepare_files(run1, target_files)
 
     print(
-        f"Executing {inspect.currentframe().f_code.co_name} with target run '{target_run}' normalize:{normalize_content} content_format:{content_format} and {len(comparison_run_names)} comparison runs"
+        f"Executing {inspect.currentframe().f_code.co_name} with target run '{target_run}' normalize:{mask} content_format:{content_format} and {len(comparison_run_names)} comparison runs"
         + (f": {comparison_run_names}" if len(comparison_run_names) < 6 else "")
     )
     # Compare the base run to each specified comparison run
@@ -699,9 +833,9 @@ def distance_file_content(df, target_run, comparison_runs="ALL", target_files=Fa
 
     # Create a Polars DataFrame from the results
     results_df = pl.DataFrame(results)
-    _write_output(results_df, analysis="dis", level=3, target_run=target_run, comparison_run="Many", norm=normalize_content, content_format=content_format)
+    _write_output(results_df, analysis="dis", level=3, target_run=target_run, comparison_run="Many", mask=mask, content_format=content_format, file_name_prefix=file_name_prefix)
 
-def distance_line_content(df, target_run, comparison_runs="ALL", target_files="ALL", normalize_content=False):
+def distance_line_content(df, target_run, comparison_runs="ALL", target_files="ALL", mask=False, file_name_prefix=""):
     """
     Measure distances between one run and specified other runs in the dataframe and save the results as a CSV file.
     
@@ -712,7 +846,7 @@ def distance_line_content(df, target_run, comparison_runs="ALL", target_files="A
     - base_run_name: Name of the run to compare against others.
     - comparison_runs: Optional list of run names to compare against. If None, compares against all other runs.
     """    
-    field = "e_message_normalized" if normalize_content else "m_message"
+    field = "e_message_normalized" if mask else "m_message"
     # Extract unique runs and files
     df_run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs) 
     target_files = _prepare_files(df_run1, target_files)
@@ -730,7 +864,7 @@ def distance_line_content(df, target_run, comparison_runs="ALL", target_files="A
             distance = LogDistance(df_run1_file, df_other_run_file, field=field)
             diff = distance.diff_lines()
             
-            _write_output(diff, analysis="dis", level=4, target_run=target_run, comparison_run=other_run, norm=normalize_content, file=file_name)
+            _write_output(diff, analysis="dis", level=4, target_run=target_run, comparison_run=other_run, mask=mask, file=file_name, file_name_prefix=file_name_prefix)
             print(".", end="", flush=True) #Progress on screen
     print()  # Newline after progress dots
 
@@ -848,8 +982,6 @@ def _calculate_zscore_sum(results):
     # Normalize each distance column using z-scores, ignoring NaN values
     normalized_distances = np.apply_along_axis(lambda col: zscore(col, nan_policy='omit'), axis=0, arr=distance_matrix)
 
-
-
     # Sum the normalized distances for each comparison run
     zscore_sum = normalized_distances.sum(axis=1)
     
@@ -858,6 +990,70 @@ def _calculate_zscore_sum(results):
         result['zscore_sum'] = zscore_sum[idx]
     
     return results
+
+def _calculate_zscore_sum_anos(df) -> pl.DataFrame:
+    import numpy as np
+    from scipy.stats import zscore, rankdata
+    """
+    This function normalizes the distance measures in the DataFrame using Z-scores,
+    sums the normalized values for each comparison run, and appends the zscore_sum
+    as a new column to the DataFrame.
+
+    Args:
+    df (pl.DataFrame): DataFrame containing distance measures (e.g., kmeans_pred_ano_proba,
+                       IF_pred_ano_proba, RM_pred_ano_proba, OOVD_pred_ano_proba).
+
+    Returns:
+    pl.DataFrame: Updated DataFrame with an additional 'zscore_sum' column.
+    """
+    # Define the columns to normalize
+    if isinstance(df, pl.DataFrame): 
+        distance_columns = ["kmeans_pred_ano_proba", "IF_pred_ano_proba", "RM_pred_ano_proba", "OOVD_pred_ano_proba"]
+        # Replace None with np.nan for compatibility with numpy operations
+        df = df.with_columns([pl.col(col).fill_nan(np.nan) for col in distance_columns])
+        # Convert Polars DataFrame to a list of dictionaries
+        results = df.to_dicts()
+    elif isinstance(df, list):
+        distance_columns = ["cosine", "jaccard", "compression", "containment"]
+        results = df
+    else:
+        raise ValueError(f"Error: Unsupported datatype: {type(df)}. Supported types are: pl.DataFrame and list")
+    
+    # Create the distance matrix from the results, explicitly replacing None with np.nan
+    distance_matrix = np.array([
+        [
+            np.nan if result.get(col) is None else result[col]
+            for col in distance_columns
+        ]
+        for result in results
+    ])
+    
+    # Normalize each distance column using z-scores, ignoring NaN values
+    normalized_distances = np.apply_along_axis(lambda col: zscore(col, nan_policy='omit'), axis=0, arr=distance_matrix)
+
+    # Sum the normalized distances for each comparison run
+    zscore_sum = normalized_distances.sum(axis=1)
+    
+    # Compute ranks for each distance column, ignoring NaN values
+    rank_matrix = np.apply_along_axis(lambda col: rankdata(col, nan_policy='omit'), axis=0, arr=distance_matrix)
+    
+    # Sum the ranks for each comparison run
+    rank_sum = rank_matrix.sum(axis=1)
+    
+    # Add the z-score sum and rank sum to each result
+    for idx, result in enumerate(results):
+        result['zscore_sum'] = zscore_sum[idx]
+        result['rank_sum'] = rank_sum[idx]
+    
+    # If the input was Polars Datafame convert the updated results back to a Polars DataFrame
+    if isinstance(df, pl.DataFrame): 
+        return pl.DataFrame(results)
+    elif isinstance(df, list):
+        return results
+    else:
+        raise ValueError(f"Error: Unsupported datatype: {type(df)}. Supported types are: pl.DataFrame and list")
+    
+    #return updated_df
 
 def _normalize_measure_columns(df, columns):
     """Min-Max normalize a set of columns belonging to the same measure."""
@@ -929,7 +1125,7 @@ def _ano_plot_line_scores(df, title, display_mode="markers"):
     # Show plot in HTML format
     return fig
 
-def anomaly_run(df, target_run, comparison_runs="ALL", file = False, detectors=["KMeans"], normalize_content=False, content_format="Words", vectorizer="Count"):
+def anomaly_run(df, target_run, comparison_runs="ALL", file = False, detectors=["KMeans"], mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Detect anomalies at the run level.
     
@@ -939,7 +1135,7 @@ def anomaly_run(df, target_run, comparison_runs="ALL", file = False, detectors=[
     - comparison_runs: Optional list of run names to compare against. If ALL, compares against all other runs.
     - file: Flag to indicate do use file names (True) or file contents (False)
     """
-    df, field = _prepare_content(df, normalize_content, content_format=content_format)    
+    df, field = _prepare_content(df, mask, content_format=content_format)    
     df_anos_merge = pl.DataFrame()
     target_run_names = _check_multiple_target_runs(df, target_run)
     
@@ -960,9 +1156,11 @@ def anomaly_run(df, target_run, comparison_runs="ALL", file = False, detectors=[
         df_anos_merge = df_anos_merge.vstack(df_anos)
         print(".", end="", flush=True)
     print()  # Newline after progress dots
-    _write_output(df_anos_merge, analysis="ano", level=1 if file else 2, target_run="Many", comparison_run="Many", norm=normalize_content)
+    #df_anos_merge = pl.DataFrame(_calculate_zscore_sum_anos(df_anos_merge.to_dict()))
+    df_anos_merge = _calculate_zscore_sum_anos(df_anos_merge)
+    _write_output(df_anos_merge, analysis="ano", level=1 if file else 2, target_run="Many", comparison_run="Many", mask=mask, file_name_prefix=file_name_prefix)
 
-def anomaly_file_content(df, target_run, comparison_runs="ALL", target_files="ALL", detectors=["KMeans"], normalize_content=False, content_format="Words", vectorizer="Count"):
+def anomaly_file_content(df, target_run, comparison_runs="ALL", target_files="ALL", detectors=["KMeans"], mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Measure distances between one run and specified other runs in the dataframe and save the results as a CSV file.
     
@@ -973,7 +1171,7 @@ def anomaly_file_content(df, target_run, comparison_runs="ALL", target_files="AL
     - base_run_name: Name of the run to compare against others.
     - comparison_runs: Optional list of run names to compare against. If ALL, compares against all other runs.
     """
-    df, field = _prepare_content(df, normalize_content, content_format=content_format) 
+    df, field = _prepare_content(df, mask, content_format=content_format) 
 
     target_run_names = _check_multiple_target_runs(df, target_run)
     # Extract unique runs
@@ -1008,9 +1206,10 @@ def anomaly_file_content(df, target_run, comparison_runs="ALL", target_files="AL
             df_anos_merge = df_anos_merge.vstack(df_anos)
             print(".", end="", flush=True) #Progress on screen
         print()  # Newline after progress dots
-    _write_output(df_anos_merge, analysis="ano", level=3, target_run=target_run, comparison_run="Many", norm=normalize_content, content_format=content_format, vectorizer=vectorizer)
+    df_anos_merge = _calculate_zscore_sum_anos(df_anos_merge)
+    _write_output(df_anos_merge, analysis="ano", level=3, target_run=target_run, comparison_run="Many", mask=mask, content_format=content_format, vectorizer=vectorizer, file_name_prefix=file_name_prefix)
 
-def anomaly_line_content(df, target_run, comparison_runs="ALL", target_files="ALL", detectors=["KMeans"], normalize_content=False, content_format="Words", vectorizer="Count"):
+def anomaly_line_content(df, target_run, comparison_runs="ALL", target_files="ALL", detectors=["KMeans"], mask=False, content_format="Words", vectorizer="Count", file_name_prefix=""):
     """
     Measure distances between one run and specified other runs in the dataframe and save the results as a CSV file.
     
@@ -1022,37 +1221,40 @@ def anomaly_line_content(df, target_run, comparison_runs="ALL", target_files="AL
     - comparison_runs: Optional list of run names to compare against. If ALL, compares against all other runs.
     """
     # Extract unique runs
-    df, field = _prepare_content(df, normalize_content, content_format=content_format) 
+    df, field = _prepare_content(df, mask, content_format=content_format)
+    target_run_names = _check_multiple_target_runs(df, target_run)
+    df_anos_merge = pl.DataFrame() 
+    for target_run in target_run_names:
+        df_run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs) 
+        print(
+            f"Executing {inspect.currentframe().f_code.co_name} with format:{content_format}, vectorizer:{vectorizer}, target_run:{target_run}, field:{field} and {len(comparison_run_names)} comparison runs"
+            + (f": {comparison_run_names}" if len(comparison_run_names) < 6 else "")
+        )
+        target_files = _prepare_files(df_run1, target_files)
+        df_other_runs = df.filter(pl.col("run").is_in(comparison_run_names))
+        print(f"Predicting {len(target_files)} files: {target_files}")
+        # Loop over each file first
+        for file_name in target_files:
+            df_run1_files =  df_run1.filter(pl.col("file_name") == file_name)
+            df_other_runs_files = df_other_runs.filter(pl.col("file_name") == file_name)
+            if df_other_runs_files.height == 0:
+                print(f"Found no files matching files in comparisons runs for file: {file_name}")
+                continue
 
-    df_run1, comparison_run_names = _prepare_runs(df, target_run, comparison_runs) 
-    print(
-        f"Executing {inspect.currentframe().f_code.co_name} with format:{content_format}, vectorizer:{vectorizer}, target_run:{target_run}, field:{field} and {len(comparison_run_names)} comparison runs"
-        + (f": {comparison_run_names}" if len(comparison_run_names) < 6 else "")
-    )
-    target_files = _prepare_files(df_run1, target_files)
-    df_other_runs = df.filter(pl.col("run").is_in(comparison_run_names))
-    print(f"Predicting {len(target_files)} files: {target_files}")
-    # Loop over each file first
-    for file_name in target_files:
-        df_run1_files =  df_run1.filter(pl.col("file_name") == file_name)
-        df_other_runs_files = df_other_runs.filter(pl.col("file_name") == file_name)
-        if df_other_runs_files.height == 0:
-            print(f"Found no files matching files in comparisons runs for file: {file_name}")
-            continue
-
-        df_anos = _run_anomaly_detection(df_run1_files,df_other_runs_files, field, detectors=detectors, vectorizer=vectorizer)
-        #Add moving averages. 
-        df_anos_10 = _calculate_moving_average_all_numeric(df_anos, 10)
-        df_anos_100 = _calculate_moving_average_all_numeric(df_anos, 100)
-        df_anos = df_anos.with_columns(df_anos_10)
-        df_anos = df_anos.with_columns(df_anos_100)
-        df_anos = df_anos.with_row_index("line_number")
-        #Write to file and plot
-        _write_output(df_anos, analysis="ano", level=4, target_run=target_run, comparison_run="Many", norm=normalize_content,content_format=content_format, vectorizer=vectorizer,  file=file_name)
-        title = f"Anomaly scores - Normalized:{normalize_content}, Tokenization:{content_format}, Vectorizer:{vectorizer}<br>Target run: {target_run}<br>Target file: {file_name}"
-        fig = _ano_plot_line_scores(df_anos, title)
-        _write_output(fig, analysis="ano_plot", level=4, target_run=target_run, comparison_run="Many", norm=normalize_content, content_format=content_format, vectorizer=vectorizer, file=file_name)
-        print(".", end="", flush=True) #Progress on screen
+            df_anos = _run_anomaly_detection(df_run1_files,df_other_runs_files, field, detectors=detectors, vectorizer=vectorizer)
+            #Add moving averages. 
+            df_anos_10 = _calculate_moving_average_all_numeric(df_anos, 10)
+            df_anos_100 = _calculate_moving_average_all_numeric(df_anos, 100)
+            df_anos = df_anos.with_columns(df_anos_10)
+            df_anos = df_anos.with_columns(df_anos_100)
+            df_anos = df_anos.with_row_index("line_number")
+            #Write to file and plot
+            _write_output(df_anos, analysis="ano", level=4, target_run=target_run, comparison_run="Many", mask=mask,content_format=content_format, vectorizer=vectorizer,  file=file_name, file_name_prefix=file_name_prefix)
+            title = f"Anomaly scores - Normalized:{mask}, Tokenization:{content_format}, Vectorizer:{vectorizer}<br>Target run: {target_run}<br>Target file: {file_name}"
+            fig = _ano_plot_line_scores(df_anos, title)
+            _write_output(fig, analysis="ano_plot", level=4, target_run=target_run, comparison_run="Many", mask=mask, content_format=content_format, vectorizer=vectorizer, file=file_name, file_name_prefix=file_name_prefix)
+            print(".", end="", flush=True) #Progress on screen
+        print()  # Newline after progress dots
     print()  # Newline after progress dots
 
 def _aggregate_dataframe(df: pl.DataFrame, group_by_col: str, field: str) -> pl.DataFrame:
@@ -1157,7 +1359,7 @@ def _run_anomaly_detection(df_run1_files,df_other_runs_files, field, detectors=[
 
     return df_anos
 
-def _write_output(df, analysis, level=0, target_run="", comparison_run="", file="", norm=False, content_format="", vectorizer="", separator='\t', quote_style='always'):
+def _write_output(df, analysis, level=0, target_run="", comparison_run="", file="", mask=False, content_format="", vectorizer="", file_name_prefix="", separator='\t', quote_style='always'):
     """
     Construct the file name and write a Polars DataFrame to a CSV file, creating directories if they don't exist.
 
@@ -1174,23 +1376,26 @@ def _write_output(df, analysis, level=0, target_run="", comparison_run="", file=
 
    
     # Start constructing the output file name with the analysis type
-    output_csv = analysis
+    output_csv = file_name_prefix + "_" + analysis if file_name_prefix else analysis
     
     # Append the level to the file name
     output_csv += f"_L{level}"
 
-    output_csv += f"_norm_{norm}"
-
-    if content_format:
-        output_csv += f"_{content_format}"
-    if vectorizer:
-        output_csv += f"_{vectorizer}"
 
     # Append the target and comparison run identifiers if they are provided
     if target_run:
         output_csv += f"_{target_run}"
     if comparison_run:
         output_csv += f"_vs_{comparison_run}"
+
+    output_csv += f"_mask={mask}"
+
+    if content_format:
+        output_csv += f"_format={content_format}"
+    if vectorizer:
+        output_csv += f"_vec={vectorizer}"
+
+
     
     # Append the additional file identifier if provided
     if file:

@@ -1,0 +1,96 @@
+# Specify input data and output folders
+input_data_folder: Hadoop
+output_folder: Out/demo_viz_app_ano_4
+
+preprocessing_steps:
+  - name: "remove_run_name_from_file_names" #File names become shorter.
+# Do you want to mask, e.g., 192.168.1.1 -> <IP>?
+# If unsure, the answer is YES.
+# Modify masks in regex_masking.py
+regex_masking:
+  enabled: true
+  pattern:
+    - name: "myllari_extended" #Specify these in regex_masking.py
+pre_parse:
+  enabled: false
+
+steps:
+  # Step 1: Plot runs agains each other using file names as input ----------------------------------------
+  plot_file_content:
+    - target_run: "PageRank_MachineDown_application_1445182159119_0017" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*" #Filter based on application
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_HARD"
+      target_files:
+      - "container__01_000002.log"
+      mask: True
+
+    - target_run: "PageRank_MachineDown_application_1445182159119_0017" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_HARD" #Filter based on application
+      target_files:
+      - "container__01_000003.log"
+      mask: True
+
+    - target_run: "PageRank_MachineDown_application_1445182159119_0017" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_HARD" #Filter based on application
+      target_files:
+      - "container__01_000004.log"
+      mask: True
+      
+    - target_run: "PageRank_MachineDown_application_1445182159119_0017" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_HARD" #Filter based on application
+      target_files:
+      - "container__01_000005.log"
+      mask: True
+
+    - target_run: "PageRank_MachineDown_application_1445182159119_0017" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_HARD" #Filter based on application
+      target_files:
+      - "container__01_000013.log"
+      mask: True
+#---------------------------------------------------------------------------
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*" #Filter based on application
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_MED"
+      target_files:
+      - "container__01_000002.log"
+      mask: True
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_MED" #Filter based on application
+      target_files:
+      - "container__01_000003.log"
+      mask: True
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_MED" #Filter based on application
+      target_files:
+      - "container__01_000004.log"
+      mask: True
+      
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_MED" #Filter based on application
+      target_files:
+      - "container__01_000005.log"
+      mask: True
+
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011" #We need to select a target run for analysis. If you do not care just select one anyway.
+      comparison_runs: "PageRank*"
+      group_by_indices: [0,1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "App_and_Ano_MED" #Filter based on application
+      target_files:
+      - "container__01_000013.log"
+      mask: True

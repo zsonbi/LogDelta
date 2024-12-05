@@ -2,12 +2,14 @@
 # https://zenodo.org/records/8196385/files/Hadoop.zip?download=1 
 
 # Specify input data and output folders
-input_data_folder: "/home/mmantyla/Datasets/hadoop"
-output_folder: "/home/mmantyla/output/hadoop"
+#input_data_folder: "/home/mmantyla/Datasets/hadoop"
+input_data_folder: Hadoop
+output_folder: Output
 
 #Any dataset specific preprocessing can be done here. 
 preprocessing_steps:
-  - name: "remove_run_name_from_file_names"
+  #Run name is part of each file name Hadoop data. We remove the run name as otherwise we cannot match files against each other filenames. 
+  - name: "remove_run_name_from_file_names" #Run name is part of each file name. We remove the run name as otherwise we cannot match files against each other filenames. 
 
 # Do you want to mask, e.g., 192.168.1.1 -> <IP>?
 # If unsure, the answer is YES.
@@ -28,10 +30,11 @@ pre_parse:
     - name: "Parse-Tip" #Other valid parse options are Parse-Drain, Parse-Brain and everything that is listed as parse_*() in https://github.com/EvoTestOps/LogLead/blob/main/loglead/enhancers/eventlog.py
     #- name: "Parse-Drain"
 
-#Note: CSV writer cannot handel nested columns so they get dropped
-table_output: "xlsx" #Valid options xlsx and csv.
+#Valid options are xlsx and csv.
+#Note: csv writer cannot handel nested columns so they get dropped
+table_output: "csv" 
 
-
+#----------------------------------------------------------------------------------------
 steps:
   # Similarity based comparisons
   # Level 1
@@ -46,7 +49,7 @@ steps:
         - "application_1445062781478_0012"
         - "application_1445062781478_0013"
         - "application_1445062781478_0014"
-      normalize_content: False #TODO rename this to mask_content
+      mask: False #TODO rename this to mask_content
       content_format: "Sklearn" #Words and 3grams require loglead 1.1.1
       vectorizer: "Count"
     - target_run: "application_1445062781478_0011"
@@ -54,7 +57,7 @@ steps:
         - "application_1445062781478_0012"
         - "application_1445062781478_0013"
         - "application_1445062781478_0014"
-      normalize_content: True #TODO rename this to mask_content
+      mask: True #TODO rename this to mask_content
       content_format: "Sklearn"
       vectorizer: "Count"
     - target_run: "application_1445062781478_0011"
@@ -62,12 +65,9 @@ steps:
         - "application_1445062781478_0012"
         - "application_1445062781478_0013"
         - "application_1445062781478_0014"
-      normalize_content: True #TODO rename this to mask_content
+      mask: True #TODO rename this to mask_content
       content_format: "Parse-Tip"
       vectorizer: "Count"
-
-
-
 
   # #Level 3
   distance_file_content:
@@ -76,7 +76,7 @@ steps:
         - "application_1445062781478_0012"
         - "application_1445062781478_0013"
         - "application_1445062781478_0014"
-      normalize_content: True
+      mask: True
       content_format: "Sklearn" #3grams and Words require loglead 1.1.1
       vectorizer: "Count"
     - target_run: "application_1445062781478_0011"
@@ -84,10 +84,11 @@ steps:
         - "application_1445062781478_0012"
         - "application_1445062781478_0013"
         - "application_1445062781478_0014"
-      normalize_content: True
+      mask: True
       content_format: "Parse-Drain"
       vectorizer: "Count"
-  #Level 4. This runs diff algo. We could also implement it with e.g. relaxed word mover distance or similar string distance. Not sure if it make
+
+  #Level 4. This runs normal diff algo. We could also implement it with e.g. relaxed word mover distance or similar string distance. Not sure if it makes any sense
   distance_line_content:
     - target_run: "application_1445062781478_0011"
       target_files:
@@ -98,9 +99,10 @@ steps:
         - "application_1445062781478_0012"
         - "application_1445062781478_0013"
         - "application_1445062781478_0014"
-      normalize_content: True
-
-  # Anomaly detection based models
+      mask: True
+      
+#----------------------------------------------------------------------------------------
+# Anomaly detection based models
   # Level 1
   anomaly_run_file: 
     - target_run: 3 #for anomaly_run_file we can also specify a number for target_run
@@ -114,7 +116,7 @@ steps:
   anomaly_run_content:
     - target_run: 3
       comparison_runs: 10 #for anomaly_run_file we can also specify a number for target_run
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -124,7 +126,7 @@ steps:
       vectorizer: "Count" #Valid options: Count Tfidf
     - target_run: 3
       comparison_runs: 10 #for anomaly_run_file we can also specify a number for target_run
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -134,7 +136,7 @@ steps:
       vectorizer: "Tfidf" #Valid options: Count Tfidf
     - target_run: 3
       comparison_runs: 10 #for anomaly_run_file we can also specify a number for target_run
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -144,7 +146,7 @@ steps:
       vectorizer: "Count" #Valid options: Count Tfidf
     - target_run: 3
       comparison_runs: 10 #for anomaly_run_file we can also specify a number for target_run
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -152,8 +154,6 @@ steps:
         - OOVDetector
       content_format: "Words" #Valid options: 3grams, Sklearn, Parse
       vectorizer: "Count" #Valid options: Count Tfidf
-
-
 
   # Level 3
   anomaly_file_content:
@@ -163,7 +163,7 @@ steps:
       - "container__01_000002.log"
       - "container__01_000003.log"
       comparison_runs: 10
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -178,7 +178,7 @@ steps:
       - "container__01_000002.log"
       - "container__01_000003.log"
       comparison_runs: 10
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -193,7 +193,7 @@ steps:
       - "container__01_000002.log"
       - "container__01_000003.log"
       comparison_runs: 10
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -208,7 +208,7 @@ steps:
       - "container__01_000002.log"
       - "container__01_000003.log"
       comparison_runs: 10
-      normalize_content: True
+      mask: True
       detectors:
         - IsolationForest
         - KMeans
@@ -226,7 +226,7 @@ steps:
       - "container__01_000002.log"
       - "container__01_000003.log"
       comparison_runs: "ALL"
-      normalize_content: True
+      mask: True
       detectors:
        - IsolationForest
        - KMeans
@@ -234,37 +234,39 @@ steps:
        - OOVDetector
       content_format: "Words" #Valid options: 3grams, Sklearn, Parse
       vectorizer: "Count" #Valid options: Count Tfidf
+
+#----------------------------------------------------------------------------------------
   #Plotting. 
   # #Level 1
   plot_run_file:
     - target_run: "application_1445062781478_0011"
       comparison_runs: "ALL"
-      group_by_indices: [0, 1] #use first and second element WordCount and DiskFull
+      group_by_indices: [0, 1] #use first(0) and second(1) element for grouping
 
-  #Level 1
+  #Level 2
   plot_run_content:
     - target_run: "application_1445062781478_0011"
       comparison_runs: "ALL"
       group_by_indices: [0, 1] 
-      normalize_content: True
+      mask: True
       content_format: "3grams"
       vectorizer: "Tfidf"
     - target_run: "application_1445062781478_0011"
       comparison_runs: "ALL"
       group_by_indices: [0, 1] 
-      normalize_content: True
+      mask: True
       content_format: "Words"
       vectorizer: "Count"
     - target_run: "application_1445062781478_0011"
       comparison_runs: "ALL"
       group_by_indices: [0, 1] 
-      normalize_content: True
+      mask: True
       content_format: "Parse-Tip" #Other valid parse options are Parse-Drain, Parse-Brain and everything that is listed as parse_*() in https://github.com/EvoTestOps/LogLead/blob/main/loglead/enhancers/eventlog.py
       vectorizer: "Count"
     - target_run: "application_1445062781478_0011"
       comparison_runs: "ALL"
       group_by_indices: [0, 1] 
-      normalize_content: True
+      mask: True
       content_format: "Sklearn"
       vectorizer: "Tfidf"
     
@@ -275,7 +277,7 @@ steps:
       target_files:
       - "container__01_000001.log"
       group_by_indices: [0, 1]
-      normalize_content: True
+      mask: True
       content_format: "Words"
       vectorizer: "Tfidf"
 

@@ -1,0 +1,54 @@
+# Specify input data and output folders
+input_data_folder: Hadoop
+output_folder: Out/demo_dist_2
+
+preprocessing_steps:
+  - name: "remove_run_name_from_file_names" #File names become shorter.
+# Do you want to mask, e.g., 192.168.1.1 -> <IP>?
+# If unsure, the answer is YES.
+# Modify masks in regex_masking.py
+regex_masking:
+  enabled: true
+  pattern:
+    - name: "myllari_extended" #Specify these in regex_masking.py
+pre_parse:
+  enabled: true
+  parsers: 
+    - name: "Parse-Tip"
+
+#Valid options are xlsx and csv.
+#Note: csv writer cannot handel nested columns so they get dropped
+table_output: "xlsx" 
+
+steps:
+  # Similarity based comparisons
+  # Textual content
+  distance_run_content:
+    - target_run: "PageRank_MachineDown_application_1445182159119_0017"
+      comparison_runs: "PageRank*"
+      mask: True
+      file_name_prefix: HARD
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+      comparison_runs: "PageRank*"
+      mask: True
+      file_name_prefix: MED
+      
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+      comparison_runs: "PageRank*"
+      mask: True
+      file_name_prefix: MED-Parse
+      content_format: "Parse-Tip" #Valid options: Words (default) 3grams, Sklearn, Parse-Tip, Parse-Drain
+  
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+      comparison_runs: "PageRank*"
+      mask: True
+      file_name_prefix: MED-3grams
+      content_format: "3grams" #Valid options: Words (default) 3grams, Sklearn, Parse-Tip, Parse-Drain
+  
+    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+      comparison_runs: "PageRank*"
+      mask: True
+      file_name_prefix: MED-Sklearn
+      content_format: "Sklearn" #Valid options: Words (default) 3grams, Sklearn, Parse-Tip, Parse-Drain
+
+

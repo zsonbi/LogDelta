@@ -12,8 +12,12 @@ private_data/
 .idea
 dist/
 build/
-LogLead.egg-info
+*.egg-info
 *.label
 *.log
 *.joblib
 *.xlsx
+*.zip
+*.yaml
+*.html
+*.txt
