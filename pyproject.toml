@@ -9,9 +9,10 @@ include = ["logdelta*"]
 name = "LogDelta"
 version = "0.1.0"
 description = "LogDelta - Go Beyond Grepping with NLP-Based Log File Analysis"
+readme = "README.md"
+license = {file = "LICENSE"}
 authors = [
     {name = "Mika Mäntylä", email="mika.mantyla@helsinki.fi"}]
-license = { text = "MIT" }
 keywords = [
     "logs",
     "anomaly detection",
