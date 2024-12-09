@@ -50,7 +50,7 @@ Analysis can be done at four different levels:
 
 LogDelta is build on top of LogLead[^1]. https://pypi.org/project/LogLead/
 
-Log line level anomaly detection visualized over 8 different log files. Which was is anomaly? 
+Log line level anomaly detection visualized. Which one is anomaly? 
 ![8 different log files](images/8_log_files.png)
 
 
