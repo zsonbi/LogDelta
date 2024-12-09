@@ -17,9 +17,9 @@ After cloning the repository, navigate to the logdelta demo label-investigation 
 Finally, download the Hadoop dataset and extract its contents into the working folder.
 With these steps completed, we’re ready to dive into the analysis.
 
-The Hadoop dataset includes labels in a separate file for the different runs we plan to analyze. To make this analysis compatible with LogDelta’s philosophy, it’s a good idea to rename the existing runs or folders using these label names. To assist with this, we provide a script that automates the renaming process, ensuring the labels are clearly associated with each run. This makes the analysis phase much more streamlined and organized.
+The Hadoop dataset includes labels in a separate file for the different runs we plan to analyze. To make this analysis compatible with LogDelta’s philosophy, it’s a good idea to rename the existing runs or folders using these label names. To assist with this, we provide a script that automates the renaming process, ensuring the labels are clearly associated with each run. This makes the analysis phase much more easier to follow.
 
-- `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ LogDelta`
+- `pip install logdelta`
 - `git clone https://github.com/EvoTestOps/LogDelta.git`
 - `cd LogDelta/demo/label_investigation`
 - `wget -O Hadoop.zip https://zenodo.org/records/8196385/files/Hadoop.zip?download=1`
@@ -37,7 +37,7 @@ This is the most top level analysis. It is specified in file `1_viz_file_names.y
 Simple plot show runs with two axis the number of log lines in Y-axis the runs and number of unique file names in X-axis. 
 Number of loglines in runs can be usefull as anomolous runs are often smaller or larger than normal run. 
 
-For example paper by Landauer et al showed that one third of anomaly seqeuences in HDFS data set can be recognized by the fact that they shorter than any of the normal runs. 
+For example paper by Landauer et al[^3] showed that one third of anomaly seqeuences in HDFS data set can be recognized by the fact that they shorter than any of the normal runs. 
 
 [^3]: Landauer M, Skopik F, Wurzenberger M. A critical review of common log data sets used for evaluation of sequence-based anomaly detection techniques. Proceedings of the ACM on Software Engineering. 2024 Jul 12;1(FSE):1354-75.
 

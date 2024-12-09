@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 include = ["logdelta*"]
 
 [project]
-name = "LogDelta"
-version = "0.1.0"
-description = "LogDelta - Go Beyond Grepping with NLP-Based Log File Analysis"
+name = "logdelta"
+version = "1.0.0"
+description = "LogDelta - Go Beyond Grepping with NLP-based Log File Analysis"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
