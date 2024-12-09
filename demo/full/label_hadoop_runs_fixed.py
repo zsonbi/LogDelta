@@ -3,11 +3,16 @@ import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 
-# There are some labels that very likely incorrect. They have been fixed for this file: 
-# All for PageRank application 
-# Old label Normal: application_1445144423722_0024 -> New label: DiskFull: application_1445144423722_0024
-# Old label MachineDown: application_1445182159119_0017 ja application_1445062781478_0020 -> New label: Normal: application_1445182159119_0017 application_1445062781478_0020
-# Mapping of application IDs to their respective test case (WordCount or PageRank) and status
+# There are some labels that very likely to be incorrect. They have been fixed for this file. 
+# For detailes see demo/label_investigation folder 
+# | ID                 | Orig Label    | Fixed Label    |
+# |--------------------|---------------|----------------|
+# | 1445144423722_0024 | Normal        | Disk Full      |
+# | 1445182159119_0017 | Machine Down  | Normal         |
+# | 1445182151478_0015 | Machine Down  | Disk Full      |
+# | 1445182159119_0013 | Disk Full     | Machine Down   |
+# | 1445182159119_0011 | Disk Full     | Machine Down   |
+
 mapping = {
     'WordCount': {
         'Normal': [
@@ -38,18 +43,21 @@ mapping = {
         ],
         'MachineDown': [
             'application_1445062781478_0012', 'application_1445062781478_0013', 'application_1445062781478_0014',
-            'application_1445062781478_0015', 'application_1445062781478_0017', 'application_1445062781478_0018',
-             'application_1445076437777_0001', 'application_1445076437777_0003',
+            'application_1445062781478_0017', 'application_1445062781478_0018',
+            'application_1445076437777_0001', 'application_1445076437777_0003',
             'application_1445076437777_0004', 'application_1445182159119_0016', 
-            'application_1445182159119_0018', 'application_1445182159119_0019', 'application_1445182159119_0020'
+            'application_1445182159119_0018', 'application_1445182159119_0019', 'application_1445182159119_0020',
+            'application_1445182159119_0011', #Fixed
+            'application_1445182159119_0013' #Fixed
         ],
         'NetworkDisconnection': [
             'application_1445144423722_0020', 'application_1445144423722_0022', 'application_1445144423722_0023'
         ],
         'DiskFull': [
-            'application_1445182159119_0011', 'application_1445182159119_0013', 'application_1445182159119_0014',
+            'application_1445182159119_0014',
             'application_1445182159119_0015',
-            'application_1445144423722_0024' #Fixed
+            'application_1445144423722_0024', #Fixed
+            'application_1445062781478_0015' #Fixed
         ]
     }
 }

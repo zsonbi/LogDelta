@@ -24,31 +24,27 @@ steps:
   # Similarity based comparisons
   # Textual content
   distance_run_content:
-    - target_run: "PageRank_MachineDown_application_1445182159119_0017"
+    - target_run: "PageRank_DiskFull_application_1445182159119_0014"
       comparison_runs: "PageRank*"
       mask: True
-      file_name_prefix: HARD
-    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+      file_name_prefix: Run_content
+    - target_run: "PageRank_DiskFull_application_1445182159119_0014"
+
       comparison_runs: "PageRank*"
       mask: True
-      file_name_prefix: MED
-      
-    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
-      comparison_runs: "PageRank*"
-      mask: True
-      file_name_prefix: MED-Parse
+      file_name_prefix: Run_content-Parse
       content_format: "Parse-Tip" #Valid options: Words (default) 3grams, Sklearn, Parse-Tip, Parse-Drain
-  
-    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+
+    - target_run: "PageRank_DiskFull_application_1445182159119_0014"
       comparison_runs: "PageRank*"
       mask: True
-      file_name_prefix: MED-3grams
+      file_name_prefix: Run_content-3grams
       content_format: "3grams" #Valid options: Words (default) 3grams, Sklearn, Parse-Tip, Parse-Drain
-  
-    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
+      
+    - target_run: "PageRank_DiskFull_application_1445182159119_0014"
       comparison_runs: "PageRank*"
       mask: True
-      file_name_prefix: MED-Sklearn
+      file_name_prefix: Run_content-Sklearn
       content_format: "Sklearn" #Valid options: Words (default) 3grams, Sklearn, Parse-Tip, Parse-Drain
 
 

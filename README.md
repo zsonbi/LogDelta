@@ -13,7 +13,8 @@ Performs installation, data acquisition, and demo execution.
 - `unzip Hadoop.zip -d Hadoop`
 - `python -m logdelta.config_runner -c config.yml`
 
-<!-- `python rename_hadoop.py` -->
+For more examples see `LogDelta/demo/label_investigation` and `LogDelta/demo/full`
+
 
 Observer results in `LogDelta/demo/Output`
 

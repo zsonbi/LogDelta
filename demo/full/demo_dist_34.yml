@@ -1,7 +1,6 @@
 # Specify input data and output folders
 input_data_folder: Hadoop
-output_folder: Out/demo_dist_1
-
+output_folder: Out/demo_dist_34
 preprocessing_steps:
   - name: "remove_run_name_from_file_names" #File names become shorter.
 # Do you want to mask, e.g., 192.168.1.1 -> <IP>?
@@ -20,11 +19,10 @@ table_output: "xlsx"
 
 steps:
   # Similarity based comparisons
-  # File names as content. Level 1
-  distance_run_file:
-    - target_run: "PageRank_MachineDown_application_1445182159119_0017"
-      comparison_runs: "ALL"
-      file_name_prefix: "HARD"
-    - target_run: "PageRank_DiskFull_application_1445182159119_0011"
-      comparison_runs: "ALL"
-      file_name_prefix: "MED"
+  # Textual content file level
+  distance_file_content:
+    - target_run: "PageRank_DiskFull_application_1445182159119_0014"
+      comparison_runs: "PageRank_DiskFull*"
+      mask: True
+      content_format: "Sklearn" 
+      vectorizer: "Count"

@@ -1,6 +1,6 @@
 # Specify input data and output folders
 input_data_folder: Hadoop
-output_folder: Out/demo_viz_app_3
+output_folder: out_2
 
 preprocessing_steps:
   - name: "remove_run_name_from_file_names" #File names become shorter.
@@ -16,12 +16,8 @@ pre_parse:
 
 steps:
   # Step 1: Plot runs agains each other using file names as input ----------------------------------------
-  plot_file_content:
+  plot_run_content:
     - target_run: "PageRank_DiskFull_application_1445182159119_0011" #We need to select a target run for analysis. If you do not care just select one anyway.
-      comparison_runs: "ALL"
-      group_by_indices: [0] #Use first element (application) for coloring: PageRank vs WordCount
-      file_name_prefix: "App_vs_App"
-      target_files:
-      - "container__01_000001.log"
-      mask: True
-
+      comparison_runs: "PageRank*"
+      group_by_indices: [1] #Use second element (Anomaly or normal run) for coloring: Normal, MachineDown, NetworkDisconnect, Diskfull
+      file_name_prefix: "viz_run_content"

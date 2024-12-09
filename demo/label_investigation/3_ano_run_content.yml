@@ -1,6 +1,6 @@
 # Specify input data and output folders
 input_data_folder: Hadoop
-output_folder: Out/demo_anodetect_2
+output_folder: out_3
 
 preprocessing_steps:
   - name: "remove_run_name_from_file_names" #File names become shorter.
@@ -23,17 +23,6 @@ steps:
   # Run textual content as content. Level 1
   anomaly_run_content: 
     - target_run: "PageRank*" 
-        # - PageRank_MachineDown_application_1445182159119_0017 #for anomaly_run_file we can also specify a number for target_run
-        # - PageRank_MachineDown_application_1445062781478_0020
-        # - PageRank_Normal_application_1445062781478_0019
-        # - PageRank_Normal_application_1445076437777_0002
-        # - PageRank_DiskFull_application_1445182159119_0011
-        # - PageRank_MachineDown_application_1445062781478_0014
-        # - PageRank_Normal_application_1445182159119_0012
-        # - PageRank_Normal_application_1445062781478_0011
-        # - PageRank_Normal_application_1445144423722_0024
-        # - PageRank_DiskFull_application_1445182159119_0013
-        # - PageRank_Normal_application_1445144423722_0021
       comparison_runs: 
         - PageRank_Normal_application_1445182159119_0012
         - PageRank_Normal_application_1445062781478_0011
@@ -42,7 +31,7 @@ steps:
         - PageRank_Normal_application_1445076437777_0002
         - PageRank_Normal_application_1445062781478_0016
         - PageRank_Normal_application_1445076437777_0005 
-      file_name_prefix: "Anodetect_Ano_and_Normal"
+      file_name_prefix: "Ano_run"
       detectors:
         - IsolationForest
         - KMeans

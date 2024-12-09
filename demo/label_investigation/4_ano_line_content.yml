@@ -1,0 +1,58 @@
+# Specify input data and output folders
+input_data_folder: Hadoop
+output_folder: out_4
+
+preprocessing_steps:
+  - name: "remove_run_name_from_file_names" #File names become shorter.
+# Do you want to mask, e.g., 192.168.1.1 -> <IP>?
+# If unsure, the answer is YES.
+# Modify masks in regex_masking.py
+regex_masking:
+  enabled: true
+  pattern:
+    - name: "myllari_extended" #Specify these in regex_masking.py
+pre_parse:
+  enabled: false
+
+#Valid options are xlsx and csv.
+#Note: csv writer cannot handel nested columns so they get dropped
+table_output: "xlsx" 
+
+steps:
+  # Similarity based comparisons
+  # Lines textual content as content. Level 1
+  anomaly_line_content:
+    - target_run: "PageRank*"  
+    # - target_run: 
+    #     - PageRank_MachineDown_application_1445182159119_0017 
+    #     - PageRank_MachineDown_application_1445062781478_0020
+    #     - PageRank_MachineDown_application_1445062781478_0014
+    #     - PageRank_MachineDown_application_1445062781478_0013
+    #     - PageRank_MachineDown_application_1445062781478_0012
+    #     - PageRank_MachineDown_application_1445062781478_0017
+    #     - PageRank_Normal_application_1445062781478_0019
+    #     - PageRank_Normal_application_1445076437777_0002
+    #     - PageRank_Normal_application_1445144423722_0021
+    #     - PageRank_Normal_application_1445182159119_0012
+    #     - PageRank_Normal_application_1445062781478_0011
+    #     - PageRank_Normal_application_1445144423722_0024
+    #     - PageRank_DiskFull_application_1445182159119_0013
+    #     - PageRank_DiskFull_application_1445182159119_0011
+      #comparison_runs: "PageRank_Normal*"
+      comparison_runs: 
+        - PageRank_Normal_application_1445182159119_0012
+        - PageRank_Normal_application_1445062781478_0011
+        - PageRank_Normal_application_1445144423722_0021
+        - PageRank_Normal_application_1445062781478_0019
+        - PageRank_Normal_application_1445076437777_0002
+        - PageRank_Normal_application_1445062781478_0016
+        - PageRank_Normal_application_1445076437777_0005 
+      file_name_prefix: "Ano_line"
+      target_files:
+      - "container__01_000001.log"
+      detectors:
+        - IsolationForest
+        - KMeans
+        - RarityModel
+        - OOVDetector
+      mask: true

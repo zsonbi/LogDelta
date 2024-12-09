@@ -22,22 +22,7 @@ steps:
   # Similarity based comparisons
   # Lines textual content as content. Level 1
   anomaly_line_content: 
-    - target_run: 
-        - PageRank_MachineDown_application_1445182159119_0017 #for anomaly_run_file we can also specify a number for target_run
-        - PageRank_MachineDown_application_1445062781478_0020
-        - PageRank_MachineDown_application_1445062781478_0014
-        - PageRank_MachineDown_application_1445062781478_0013
-        - PageRank_MachineDown_application_1445062781478_0012
-        - PageRank_MachineDown_application_1445062781478_0017
-        - PageRank_Normal_application_1445062781478_0019
-        - PageRank_Normal_application_1445076437777_0002
-        - PageRank_Normal_application_1445144423722_0021
-        - PageRank_Normal_application_1445182159119_0012
-        - PageRank_Normal_application_1445062781478_0011
-        - PageRank_Normal_application_1445144423722_0024
-        - PageRank_DiskFull_application_1445182159119_0013
-        - PageRank_DiskFull_application_1445182159119_0011
-        
+    - target_run: "PageRank*" 
       comparison_runs: "PageRank_Normal*"
       file_name_prefix: "Anodetect_Line"
       target_files:
