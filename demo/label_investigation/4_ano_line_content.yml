@@ -23,22 +23,6 @@ steps:
   # Lines textual content as content. Level 1
   anomaly_line_content:
     - target_run: "PageRank*"  
-    # - target_run: 
-    #     - PageRank_MachineDown_application_1445182159119_0017 
-    #     - PageRank_MachineDown_application_1445062781478_0020
-    #     - PageRank_MachineDown_application_1445062781478_0014
-    #     - PageRank_MachineDown_application_1445062781478_0013
-    #     - PageRank_MachineDown_application_1445062781478_0012
-    #     - PageRank_MachineDown_application_1445062781478_0017
-    #     - PageRank_Normal_application_1445062781478_0019
-    #     - PageRank_Normal_application_1445076437777_0002
-    #     - PageRank_Normal_application_1445144423722_0021
-    #     - PageRank_Normal_application_1445182159119_0012
-    #     - PageRank_Normal_application_1445062781478_0011
-    #     - PageRank_Normal_application_1445144423722_0024
-    #     - PageRank_DiskFull_application_1445182159119_0013
-    #     - PageRank_DiskFull_application_1445182159119_0011
-      #comparison_runs: "PageRank_Normal*"
       comparison_runs: 
         - PageRank_Normal_application_1445182159119_0012
         - PageRank_Normal_application_1445062781478_0011
@@ -47,7 +31,6 @@ steps:
         - PageRank_Normal_application_1445076437777_0002
         - PageRank_Normal_application_1445062781478_0016
         - PageRank_Normal_application_1445076437777_0005 
-      file_name_prefix: "Ano_line"
       target_files:
       - "container__01_000001.log"
       detectors:
