@@ -104,41 +104,69 @@ It is important to highlight the distinction from the previous video. In that ap
 
 The advantage of the line-by-line approach is its ability to pinpoint exactly which lines are anomalous, providing more detailed insights into the data.
 --
-This model is specified in file `4_ano_line_content.yml`. For line level prediction we have to select a particular file. Hadoop log data is organized in away that one log is kind of like the main log while other logs are like sub-processes or containers. For this analysis we build and test models at the main log file called `container__01_000001.log` in all runs. To get results execute `python -m logdelta.config_runner -c 4_ano_line_content.yml`. Output is in `out_4` folder.
+This model is specified in the file `4_ano_line_content.yml`. For line-level predictions, we need to select a specific log file to analyze. In this case, we build and test models using the main log file, `container__01_000001.log`, from all runs. This log file is the largest for each run and can be considered the main log that spawns worker processes. To generate results, execute the command: `python -m logdelta.config_runner -c 4_ano_line_content.yml`. The output will be saved in the `out_4` folder.  
 --
-Now we have the results. Lets open one run line-by-line visualization log labeled as Normal, namely `PageRank_Normal_application_1445182159119_0012`,  to explain what is visualized. First, X-axis corresponds to the line number while Y-axis shows the anomaly scores. Anomalies are scored with the four anomaly detection models Kmeans, Isolation Forrest, Rarity Model, and Out Of Vocabulury Detector. We have also added their moving averages over 10 and 100 log lines. All anomaly scores have been normalized from 0 to 1. Otherwise reading this would be impossible as each anomaly detection method score anomalies differently. 
+Now we have the results. Lets open one run line-by-line visualization log labeled as Normal, namely `PageRank_Normal_application_1445182159119_0012`,  to explain what is visualized. First, X-axis corresponds to the line number while Y-axis shows the anomaly scores. Anomalies are scored with the four anomaly detection models Kmeans, Isolation Forrest, Rarity Model, and Out Of Vocabulary Detector. We have also added their moving averages over 10 and 100 log lines. All anomaly scores have been normalized from 0 to 1. Otherwise reading this would be impossible as each anomaly detection method score anomalies differently. 
 --
-It is good to check each anomaly models scores first. We can see that Isolation Forrest and K-means have more fluctation compared to Rarity Model. We also notive that  Out Of Vocabulury Detector detects no out of vocabulary terms in this file as it scores every line as zero. 
+It is a good idea to check each anomaly model’s scores individually first.   We can observe that K-means and Isolation Forest show more fluctuation in their scores compared to the Rarity Model. Additionally, we notice that the Out-of-Vocabulary Detector does not detect any out-of-vocabulary terms in this file, as it assigns a score of zero to every line.  
 --
-We can checkout some indivual points. Moving mouse over the point brings up tool tip that shows the log line in more detail. Checking few points shows that the higher scoring log lines do not appear to particularly alarming. 
+We can check out some individual points. Moving the mouse over a point brings up a tooltip that displays the log line in more detail. Examining a few points reveals that the higher-scoring log lines do not appear to be particularly alarming.  
 --
-By clicking on and off different anomaly scores, we can also see that the anomaly scores of different models are not very clustered. We do not see points where all models would score high values.  If look into moving averages we can see that the 3 models  Isolation Forrest and K-means and Rarity Model give this run very similar looking pattern while Out Of Vocabulury Detector is always zero. 
+Looking at the moving averages, we see that the Isolation Forest and K-means models give this run almost identical scores. The Rarity Model is somewhat different, although it shares some similarities with the patterns from K-means and Isolation Forest. However, the Out-of-Vocabulary Detector consistently scores zero, providing a clearly distinct pattern.  
 
 ### Comparing Line-by-Line Finger Prints
 
 #### Investigating all Normal runs
-Now, we can use 100 elements moving average as our pattern and checkout if the other normal runs look anything similar. In total we have 8 runs labeled as normal other runs to check lets see. 
+Now, we can use a 100-line moving average as our pattern and check if the other normal runs show similar behavior. In total, we have 8 runs labeled as normal to compare.  Do any of the normal runs look noticeably different from each other? It might be challenging to identify a clear pattern without examining them side-by-side.  
+--
+Here is an image. Now it becomes much easier to identify which pattern doesn’t belong or looks too different. The answer is clear: the one on the bottom right.  In addition to the shape being different, the X-axis label reveals that this log file is significantly longer than the others, extending well past 2,000 lines. In contrast, the second-longest log only surpasses 1,400 lines.  This log file is from the run we previously identified as suspicious. That is the run `PageRank_Normal_application_1445144423722_0024`
 
-Did you notice any of the normal runs looking different from each other?
-It might be difficult to formulate a pattern without looking at them side-by-side. Here is an image. Now it is very easy to spot which one of the pattern does not belong or just looks too different. Yes. The one on the bottom right. In addition to shape being different the X-axis label also tells us that this log-file is far longer than any of the other ones extending way past 2,000 lines while the second longest log only gets past the 1,400 log lines. The log-file standing out also belongs to the run we previously identified as suspiscious. That is the run `PageRank_Normal_application_1445144423722_0024`
+We can create another fingerprint or pattern comparison by selecting all the raw values. When we arrange all 8 runs side-by-side, it looks similar to the previous comparison identifying bottom right is being different.   
 
-We can have another finger print or pattern comparison if we select all the raw values. If we put again 8 side-by-side it looks like... TODO
+Now, let’s take a closer look at this highly suspicious normal execution. First, we clear out the moving averages and focus on individual line-by-line scores.  Hovering over the most anomalous points reveals a recurring issue: a lack of disk space. This is indicated by the log message stating, *"Going to preempt 1 due to lack of space for maps."* This provides strong evidence that this run is experiencing a Disk Full anomaly.
 
-Now lets look into more detail to this highly suspcious normal execution. First we clear out the moving averages and just look at individual line by line scores.  Hovering mouse over the most anomalous points show that there seems to be lack of disk space this is indicated with log message stating " Going to preempt 1 due to lack of space for maps". This suggest that this run is suffering from Disk Full anomaly. 
+On screen, we have a refresher from the previous video, displaying the results from run-level anomaly scoring. Notably, the same run is identified as anomalous here, with a significantly high rank-sum score. It stands out as being ranked far from the normal runs and is surrounded by other anomalous runs.
+
+Here is a summary table of the identified incorrect labels and their corresponding fixes. The table outlines three key details: the run ID, the original label, and the corrected label.
+
+#### Investigate all Machine Down Anomalies
+Now, let’s move on to studying Machine Down anomalies. There are 15 such anomalies, each exhibiting distinct fingerprints, as shown on the screen. These variations suggest that the specific machine involved or the timing of the anomaly injection procedure plays a significant role in shaping the resulting anomaly patterns.
+
+For instance, take a look at the third row on the right side. 
+
+The fingerprints here are notably short—only about 400 lines. This could indicate that a particular machine went down and required a reboot causing a similar anomaly finger print.
+
+Now, shifting focus to two other runs: one on the bottom row, second from the left, and another on the second row, third from the left. 
+
+When we compare these fingerprints against the normal ones, the similarities become evident. Feel free to pause here if you'd like to examine the details more closely.
+
+Interestingly, these two anomalies were also ranked among the normal ones in the previous video, as shown in the on-screen spreadsheet.
+
+This provides two pieces of evidence supporting their classification as normal. First, their fingerprints closely resemble those of normal operations. Second, their prior ranking further supports this conclusion. To investigate further, I manually reviewed the top anomaly log lines for these two anomalies. The analysis revealed no significant differences in log message types when compared to the normal logs.
+
+Based on this evidence, I conclude that these two runs, labeled as anomalies, are, in fact, normal.
+
+I reviewed the top anomaly messages and out-of-vocabulary messages across all the visualized machine-down logs. During this analysis, I identified an incorrect label in the second row, first from the left.
+
+As we see, this particular anomaly is caused by an out-of-space issue, as indicated by the log message: "Going to preempt 1 due to lack of space for maps." 
+
+I conclude that this run, labeled as Machine Down, is, in fact, Disk Full anomaly.
 
 #### Investigate all DiskFulls
 
-% COMMENTED OUT Now we compare the suspcious normal runs log line finger print against other Disk Full anomaly finger prints. This comparison still makes our suspect log quite different from other Disk Full anomalies. 
+Now we study Disk Full anomaly finger prints. We can also see that Disk Full anomalies are not internally very consistent while two of the logs seem to have a similar pattern. Again, I reviewed the top anomaly messages and out-of-vocabulary messages across the visualized logs. 
 
-We can also see that Disk Full anomalies are not internally very consistent. The only pair that looks similar to each other are one in the center middel and the other one in lower left. 
+Two of the disk-full anomalies, highlighted on the screen, are not actually disk-full anomalies. Upon reviewing the log messages, I found no indication of the disk being full. Given this, I compared these two cases against the normal runs and the machine-down anomalies. The fingerprint analysis revealed that they were more similar to certain cases within the machine-down anomaly runs and not to the normal runs. Furthermore, their anomaly scores, as shown in the spreadsheet, were not low enough to classify them as normal runs. Based on this evidence, I conclude that these are machine-down anomalies.
 
-We can have another finger print or pattern comparison if we select all the raw values. 
+For the two remaining cases, I found evidence in the logs that confirmed the disk was full. 
 
-% COMMENTED OUT No we do start to see similarities. The suspect file has plenty of vertical lines caused by repeated rare log message. Also the disk full anomalies that are on the second row have similar vertical lines. 
+As shown on the screen, both of these anomaly cases include stack traces indicating insufficient disk space. While not strictly log messages, these stack traces are printed alongside the log messages, confirming the disk-full issue. VIDEO MISSING
 
-#### Investigate all Machine Down anomalies
+This concludes our somewhat accidental investigation into the incorrect labels. Initially, the purpose of this video was not to identify labeling issues but to demonstrate the LogDelta tool. However, during the demonstration, I became suspicious of some of the labels. Once I confirmed with certainty that the first incorrect label—where a "normal" run was actually a disk-full anomaly—was indeed mislabeled, it prompted a deeper investigation. As the saying goes, "When there’s one bug, you’re likely to find more."
 
-#### Investigate all Network anomalies. 
+Many details and dead-ends were left out. For example, I performed  checks using a script to search for log messages in logs, which will be included as part of this demo package. 
+
+Among the dead ends in this investigation was the use of distance-based measurements between logs. This approach involved calculating the distances from one log to all the others. However, it didn’t yield useful results, likely because the logs in this case were quite similar. The high level of similarity may have caused the distance-based approach to be influenced by incidental factors rather than capturing the actual meaningful differences between the logs.
 
 Summary
 DF +1 +1 -2 = +0
@@ -153,6 +181,7 @@ Below we present fixed labels. The cases for turning IDs ending 0024 0015 to dis
 |--------------------|---------------|----------------|
 | 1445144423722_0024 | Normal        | Disk Full      |
 | 1445182159119_0017 | Machine Down  | Normal         |
+| 1445062781478_0020 | Machine Down  | Normal         |
 | 1445182151478_0015 | Machine Down  | Disk Full      |
 | 1445182159119_0013 | Disk Full     | Machine Down   |
 | 1445182159119_0011 | Disk Full     | Machine Down   |
@@ -163,7 +192,7 @@ There were two in below table that are suspicous with their possible new labels.
 
 | ID                 | Orig Label    | Possible Label |
 |--------------------|---------------|----------------|
-| 1445062781478_0020 | Machine Down  | Normal         |
+
 | 1445076437777_0005 | Normal        | Machine Down   |
 
 

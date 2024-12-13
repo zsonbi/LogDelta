@@ -4,7 +4,7 @@ LogDelta - Go Beyond Grepping with NLP-based Log Analysis!
 See [YouTube](https://www.youtube.com/playlist?list=PLTUjKYPvVhe6JhHBlkJN_yPhVDR5w2ej2) demonstrating the tool in action.
 
 ## Installation and Example
-We recommend using a virtual environment to avoid compatibility issues.
+We recommend using a virtual environment to ensure smooth operations.
 ```bash
 conda create -n logdelta python=3.11
 conda activate logdelta
