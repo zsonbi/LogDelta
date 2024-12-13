@@ -1,7 +1,7 @@
 # LogDelta
-LogDelta - Go Beyond Grepping with NLP-based Log File Analysis
+LogDelta - Go Beyond Grepping with NLP-based Log Analysis! 
 
-LogDelta assumes your folders represent a collection of software logs of interest. LogDelta performs a comparison between two or more folders using matching file names.  A **target run** represents a software run we are interested in analyzing. LogDelta uses **comparison runs** as a baseline. For example, the "My_passing_logs1", "My_passing_logs2", "My_passing_logs3" folders can be comparison runs, while "My_failing_logs" would be your target run that you want to analyze with respect to comparison runs.
+See [YouTube](https://www.youtube.com/playlist?list=PLTUjKYPvVhe6JhHBlkJN_yPhVDR5w2ej2) demonstrating the tool in action.
 
 ## Installation and Example
 We recommend using a virtual environment to avoid compatibility issues.
@@ -28,6 +28,9 @@ Run analysis
 python -m logdelta.config_runner -c config.yml`
 ```
 Observer results in `LogDelta/demo/Output`. For more examples see `LogDelta/demo/label_investigation` and `LogDelta/demo/full`
+
+
+LogDelta assumes your folders represent a collection of software logs of interest. LogDelta performs a comparison between two or more folders using matching file names.  A **target run** represents a software run we are interested in analyzing. LogDelta uses **comparison runs** as a baseline. For example, the "My_passing_logs1", "My_passing_logs2", "My_passing_logs3" folders can be comparison runs, while "My_failing_logs" would be your target run that you want to analyze with respect to comparison runs.
 
 
 ## Types of Analysis
