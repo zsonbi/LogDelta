@@ -1,6 +1,6 @@
-## LogDelta Demo
+## LogDelta Demo - Hadoop Dataset
 
-This folder contains materials related to the demo, showcasing how to use LogDelta for analyzing log data. The demo provides both visual and written explanations.
+This demo showcases how to use LogDelta for analyzing log data from [Hadoop](https://github.com/logpai/loghub/tree/master/Hadoop) hosted by [loghub](https://github.com/logpai/loghub). 
 
 ### What's Included
 
