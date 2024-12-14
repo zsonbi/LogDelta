@@ -1,6 +1,9 @@
 # LogDelta
 LogDelta - Go Beyond Grepping with NLP-based Log Analysis! 
 
+Textual log line level anomaly detection. Which one is anomaly? 
+![8 different log files](images/8_log_files.png)
+
 See [YouTube](https://www.youtube.com/playlist?list=PLTUjKYPvVhe6JhHBlkJN_yPhVDR5w2ej2) demonstrating the tool in action.
 
 ## Installation and Example
@@ -62,11 +65,14 @@ Analysis can be done at four different levels:
 3. **File level**, investigating file contents (matched with the same names between runs).
 4. **Line level**, investigating line contents (matched with the same names between runs).
 
+## Comparison to other tools. 
+[logai](https://github.com/salesforce/logai). LogDelta shares many similarities with LogAI, a tool developed by Salesforce. However, the last time we checked, LogAI was not actively maintained. With some help from the issue tracker, we wer able to get it running. Yet, Impression was that it was a bit on the slow side compared to LogDelta. LogDelta runs on top of Polars, which offers excellent performance for processing log files with more than ten million rows on a laptop computer. 
 
-LogDelta is build on top of LogLead[^1]. https://pypi.org/project/LogLead/
+[angel-grinder](https://github.com/rcoh/angle-grinder) performs statistical analysis on log files, such as calculating the average response time in the logs. This is complementary to our tool as it allows analysis to be done within a single log file. Logdelta is not really useful for single log file analysis; rather, it requires 2 to n log files.
 
-Log line level anomaly detection visualized. Which one is anomaly? 
-![8 different log files](images/8_log_files.png)
+[lnav - Logfile navigator](https://lnav.org/) is advertised as a tool for merging, tailing, searching, filtering, and querying log files. This is a great complement to LogDelta. In fact, during our Hadoop use case, we implemented a small script for log querying, but we would likely have been much better off using lnav. 
+
+[Loglizer](https://github.com/logpai/loglizer) performs anomaly detection on logs. The last commit was 18 months ago, so it might no longer be actively maintained. However, it assumes parsed log data (e.g., with Drain), whereas LogDelta accepts raw text files. Loglizer does not appear to offer any visualizations. It seems to be more focused on anomaly detection benchmarking and, in this sense, is similar to our previous tool, [LogLead](https://github.com/EvoTestOps/LogLead), which was published a year ago. LogDelta is build on top of LogLead[^1]. https://pypi.org/project/LogLead/
 
 
 [^1]: Mäntylä MV, Wang Y, Nyyssölä J. Loglead-fast and integrated log loader, enhancer, and anomaly detector. In2024 IEEE International Conference on Software Analysis, Evolution and Reengineering (SANER) 2024 Mar 12 (pp. 395-399). IEEE.
