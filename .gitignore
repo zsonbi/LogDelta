@@ -22,3 +22,7 @@ build/
 *.html
 *.txt
 Hadoop/
+Logs/
+Output/
+!docker-compose.yaml
+/Configs

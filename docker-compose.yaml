@@ -1,0 +1,19 @@
+services:
+  logai:
+    image: logdelta
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: logdelta
+    volumes:
+      - ./Logs:/app/demo/Labeled:rw
+      - ./Logs:/usr/local/lib/python3.11/site-packages/logdelta/Labeled
+      - ./Output:/usr/local/lib/python3.11/site-packages/logdelta/Output
+      - ./Output:/app/demo/Output
+      - ./Configs:/app/demo/Configs
+    environment:
+      - PYTHONPATH=/app/demo
+    # command: ["ls", "-l"]
+    #command: ["python", "-m", "logdelta.config_runner", "-c", "/app/demo/Configs/*"]
+    # command: /bin/bash -c "python -m logdelta.config_runner -c /app/demo/Configs/*"
+    command: /bin/bash -c 'find /app/demo/Configs -type f -exec python -m logdelta.config_runner -c {} \;'
