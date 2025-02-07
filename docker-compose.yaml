@@ -13,7 +13,4 @@ services:
       - ./Configs:/app/demo/Configs
     environment:
       - PYTHONPATH=/app/demo
-    # command: ["ls", "-l"]
-    #command: ["python", "-m", "logdelta.config_runner", "-c", "/app/demo/Configs/*"]
-    # command: /bin/bash -c "python -m logdelta.config_runner -c /app/demo/Configs/*"
     command: /bin/bash -c 'find /app/demo/Configs -type f -exec python -m logdelta.config_runner -c {} \;'
